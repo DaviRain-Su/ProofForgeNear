@@ -1,0 +1,347 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# A newer push supersedes older runs of the same ref: cancel the in-progress run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Decide which lanes must run for this PR. Pushes to main and manual dispatches
+  # always run every lane.
+  # Path sets are intentionally broad: shared compiler / toolchain / workflow changes
+  # force all lanes so a latent break still gets caught on main.
+  changes:
+    name: Changes
+    runs-on: ubuntu-24.04
+    outputs:
+      lean: ${{ steps.gate.outputs.lean }}
+      near: ${{ steps.gate.outputs.near }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Detect changed paths
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            shared:
+              - '.github/workflows/ci.yml'
+              - '.agents/setup'
+              - 'lakefile.lean'
+              - 'lean-toolchain'
+              - 'lake-manifest.json'
+              - 'ProofForge/Cli.lean'
+              - 'ProofForge/Attr.lean'
+              - 'ProofForge/Extract.lean'
+              - 'ProofForge/Extract/**'
+              - 'ProofForge/Core/**'
+              - 'ProofForge/Crypto/**'
+              - 'ProofForge/Profile.lean'
+            lean:
+              - 'ProofForge/**'
+              - 'Tests/**'
+              - 'Tests.lean'
+              - 'Examples/**'
+              - 'Examples.lean'
+              - 'scripts/check_*.py'
+              - 'lakefile.lean'
+              - 'lean-toolchain'
+              - 'lake-manifest.json'
+              - '.github/workflows/ci.yml'
+              - '.agents/setup'
+            near:
+              - 'ProofForge/Wasm/**'
+              - 'Examples/Near/**'
+              - 'Examples/*.lean'
+              - 'Examples.lean'
+              - 'runtime-tests/near/**'
+              - 'scripts/check_artifact_manifest.py'
+              - 'lakefile.lean'
+              - 'lean-toolchain'
+              - 'lake-manifest.json'
+              - '.github/workflows/ci.yml'
+              - '.agents/setup'
+              - 'ProofForge/Cli.lean'
+              - 'ProofForge/Extract.lean'
+              - 'ProofForge/Extract/**'
+              - 'ProofForge/Core/**'
+
+      - name: Publish lane gates
+        id: gate
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SHARED: ${{ steps.filter.outputs.shared }}
+          LEAN: ${{ steps.filter.outputs.lean }}
+          NEAR: ${{ steps.filter.outputs.near }}
+        run: |
+          set -euo pipefail
+          # main pushes always exercise every lane.
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "lean=true" >> "$GITHUB_OUTPUT"
+            echo "near=true" >> "$GITHUB_OUTPUT"
+            echo "changes: push event → all lanes"
+            exit 0
+          fi
+          or_shared() {
+            local lane="$1"
+            if [ "$SHARED" = "true" ] || [ "$lane" = "true" ]; then
+              echo "true"
+            else
+              echo "false"
+            fi
+          }
+          lean="$(or_shared "$LEAN")"
+          near="$(or_shared "$NEAR")"
+          {
+            echo "lean=$lean"
+            echo "near=$near"
+          } >> "$GITHUB_OUTPUT"
+          echo "changes: lean=$lean near=$near"
+
+  lean:
+    name: Lean
+    needs: changes
+    if: needs.changes.outputs.lean == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Cache toolchains and Lean dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan
+            ~/.local/bin
+            .lake/packages
+          key: toolchains-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', '.agents/setup') }}
+
+      - name: Prepare pinned toolchains
+        run: |
+          ./.agents/setup
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Restore Lean build products
+        uses: actions/cache/restore@v4
+        with:
+          path: .lake/build
+          key: lake-build-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json') }}-${{ github.sha }}
+          restore-keys: lake-build-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json') }}-
+
+      - name: Check Runtime / SDK ownership boundaries
+        run: python3 scripts/check_ownership.py
+
+      - name: Check SDK import-closure (no Emit/Assemble/Registry)
+        run: python3 scripts/check_sdk_import_closure.py
+
+      - name: Check artifact manifest
+        run: python3 scripts/check_artifact_manifest.py --self-test
+
+      - name: Check kernel proofs have no placeholders
+        run: python3 scripts/check_no_sorry.py
+
+      - name: Build Lean libraries
+        run: lake build
+
+      - name: Build formalization gate modules
+        run: |
+          lake build ProofForgeNearSdk
+          lake build Tests.ProofSpec
+
+      - name: Build Lean test suite
+        run: lake build Tests
+
+      # Save only from main so PR runs do not evict the toolchain cache.
+      - name: Save Lean build products
+        if: github.event_name != 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: .lake/build
+          key: lake-build-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json') }}-${{ github.sha }}
+
+  near:
+    name: NEAR
+    needs: changes
+    if: needs.changes.outputs.near == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Cache toolchains and Lean dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan
+            ~/.local/bin
+            .lake/packages
+            runtime-tests/near/.venv
+          key: near-toolchains-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', '.agents/setup', 'runtime-tests/near/requirements.txt') }}
+
+      - name: Prepare pinned toolchains
+        run: |
+          ./.agents/setup
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Restore Lean build products
+        uses: actions/cache/restore@v4
+        with:
+          path: .lake/build
+          key: lake-build-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json') }}-${{ github.sha }}
+          restore-keys: lake-build-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json') }}-
+
+      - name: Build program source modules
+        run: lake build Examples
+
+      - name: Build all NEAR programs
+        run: lake exe pf -- build --out build/near
+
+      - name: Check NEAR artifact manifest
+        run: python3 scripts/check_artifact_manifest.py --target near --out build/near
+
+      - name: Run NEAR wasm gate
+        run: runtime-tests/near/check.sh
+
+      - name: Run NEAR sandbox Counter gate
+        run: runtime-tests/near/counter.sh
+
+      - name: Run NEAR sandbox Context gate
+        run: runtime-tests/near/context.sh
+
+      - name: Run NEAR sandbox Borsh bytes gate
+        run: runtime-tests/near/bytes.sh
+
+      - name: Run NEAR sandbox NEP-141 event gate
+        run: runtime-tests/near/ft_event.sh
+
+      - name: Run NEAR sandbox checked u128 gate
+        run: runtime-tests/near/token_arithmetic.sh
+
+      - name: Run NEAR sandbox Borsh u128 storage-value gate
+        run: runtime-tests/near/token_storage.sh
+
+      - name: Run NEAR sandbox memory arena gate
+        run: runtime-tests/near/memory.sh
+
+      - name: Run NEAR sandbox Borsh, JSON-u128, JSON-null, and bounded ft_metadata output gate
+        run: runtime-tests/near/output.sh
+
+      - name: Run NEAR sandbox StorageBalance option JSON output gate
+        run: runtime-tests/near/storage_balance_output.sh
+
+      - name: Run NEAR sandbox StorageBalanceBounds JSON output gate
+        run: runtime-tests/near/storage_balance_bounds_output.sh
+
+      - name: Run NEAR sandbox bounded AccountId JSON input gate
+        run: runtime-tests/near/json_account_input.sh
+
+      - name: Run NEAR sandbox canonical quoted-u128 amount JSON input gate
+        run: runtime-tests/near/json_amount_input.sh
+
+      - name: Run NEAR sandbox optional bounded memo JSON input gate
+        run: runtime-tests/near/json_memo_input.sh
+
+      - name: Run NEAR sandbox required bounded message JSON input gate
+        run: runtime-tests/near/json_message_input.sh
+
+      - name: Run NEAR sandbox combined bounded FT transfer argument gate
+        run: runtime-tests/near/json_ft_transfer_input.sh
+
+      - name: Run NEAR sandbox combined bounded FT transfer-call argument gate
+        run: runtime-tests/near/json_ft_transfer_call_input.sh
+
+      - name: Run NEAR sandbox bounded FT receiver argument gate
+        run: runtime-tests/near/json_ft_on_transfer_input.sh
+
+      - name: Run NEAR sandbox immediate-value FT receiver gate
+        run: runtime-tests/near/ft_receiver_value.sh
+
+      - name: Run NEAR sandbox Promise-or-U128 terminal gate
+        run: runtime-tests/near/promise_or_value.sh
+
+      - name: Run NEAR sandbox bounded FT resolver argument gate
+        run: runtime-tests/near/json_ft_resolve_input.sh
+
+      - name: Run NEAR sandbox bounded storage-deposit argument gate
+        run: runtime-tests/near/json_storage_deposit_input.sh
+
+      - name: Run NEAR sandbox bounded storage-unregister argument gate
+        run: runtime-tests/near/json_storage_unregister_input.sh
+
+      - name: Run NEAR sandbox bounded storage-withdraw argument gate
+        run: runtime-tests/near/json_storage_withdraw_input.sh
+
+      - name: Run NEAR sandbox mutating JSON Boolean output gate
+        run: runtime-tests/near/json_boolean_mutation.sh
+
+      - name: Run NEAR sandbox raw storage gate
+        run: runtime-tests/near/storage.sh
+
+      - name: Run NEAR sandbox storage economics gate
+        run: runtime-tests/near/storage_economics.sh
+
+      - name: Run NEAR sandbox closed storage-registration gate
+        run: runtime-tests/near/storage_registration.sh
+
+      - name: Run NEAR sandbox direct Vector gate
+        run: runtime-tests/near/vector.sh
+
+      - name: Run NEAR sandbox direct LookupMap/LookupSet gate
+        run: runtime-tests/near/lookup.sh
+
+      - name: Run NEAR sandbox closed fungible-ledger gate
+        run: runtime-tests/near/ledger.sh
+
+      - name: Run NEAR sandbox bounded Queue gate
+        run: runtime-tests/near/queue.sh
+
+      - name: Run NEAR sandbox Identity IterableMap/IterableSet gate
+        run: runtime-tests/near/iterable.sh
+
+      - name: Run NEAR sandbox detached Promise function-call gate
+        run: runtime-tests/near/promise.sh
+
+  # Required-check identity. Intentionally-skipped lanes (path filter) count as success;
+  # failed or cancelled lanes still fail the merge gate.
+
+  test:
+    if: always()
+    needs: [changes, lean, near]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require enabled Lean and NEAR lanes
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          LEAN_RESULT: ${{ needs.lean.result }}
+          NEAR_RESULT: ${{ needs.near.result }}
+          LEAN_ENABLED: ${{ needs.changes.outputs.lean }}
+          NEAR_ENABLED: ${{ needs.changes.outputs.near }}
+        run: |
+          set -euo pipefail
+          test "$CHANGES_RESULT" = success
+          require_lane() {
+            local name="$1" enabled="$2" result="$3"
+            if [ "$enabled" != "true" ]; then
+              echo "$name: skipped (paths unchanged)"
+              return 0
+            fi
+            echo "$name: $result"
+            test "$result" = success
+          }
+          require_lane Lean "$LEAN_ENABLED" "$LEAN_RESULT"
+          require_lane NEAR "$NEAR_ENABLED" "$NEAR_RESULT"

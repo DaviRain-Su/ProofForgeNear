@@ -31,6 +31,13 @@ inductive ValKind where
   | attachedDepositW0 | attachedDepositW1
   | accountBalance
   | accountBalanceW0 | accountBalanceW1
+  /-- Locked (staked) balance leaves; lossless u128 low/high. -/
+  | accountLockedBalance
+  | accountLockedBalanceW0 | accountLockedBalanceW1
+  /-- Chain/gas context leaves. -/
+  | epochHeight
+  | prepaidGas
+  | usedGas
   /-- Pure checked-u128 predicates and modular limbs; operands are left lo/hi, right lo/hi. -/
   | nearTokenAddOk | nearTokenAddW0 | nearTokenAddW1
   | nearTokenSubOk | nearTokenSubW0 | nearTokenSubW1
@@ -40,6 +47,17 @@ inductive ValKind where
   | currentAccountIdLen
   | currentAccountIdW1 | currentAccountIdW2 | currentAccountIdW3 | currentAccountIdW4
   | currentAccountIdW5 | currentAccountIdW6 | currentAccountIdW7
+  /-- Legacy signer w0 plus the remaining lossless AccountId leaves. -/
+  | signer
+  | signerLen
+  | signerW1 | signerW2 | signerW3 | signerW4
+  | signerW5 | signerW6 | signerW7
+  /-- `signer_account_pk` 33 bytes (curve tag + key) as five little-endian windows. -/
+  | signerPk
+  | signerPkW1 | signerPkW2 | signerPkW3 | signerPkW4
+  /-- `random_seed` 32 bytes as four little-endian windows. -/
+  | randomSeed
+  | randomSeedW1 | randomSeedW2 | randomSeedW3
   /-- Read from the one active invocation-local UInt64 buffer. -/
   | transientBuffer64Get (capacity : Nat)
   /-- Metadata and byte access for the latest raw-storage operation. -/

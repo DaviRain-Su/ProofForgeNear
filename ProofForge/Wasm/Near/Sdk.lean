@@ -195,6 +195,45 @@ namespace Context
 /-- Legacy low word. Not an identity; use `self` for equality. -/
 @[pf_inline] def selfLo : UInt64 := Runtime.currentAccountId
 
+/-- Current epoch height. View-safe. -/
+@[pf_inline] def epochHeight : UInt64 := Runtime.epochHeight
+
+/-- Gas prepaid by the transaction. View-forbidden; init/entry only. -/
+@[pf_inline] def prepaidGas : UInt64 := Runtime.prepaidGas
+
+/-- Gas burnt so far in this invocation. View-forbidden; init/entry only. -/
+@[pf_inline] def usedGas : UInt64 := Runtime.usedGas
+
+/-- Complete, view-safe locked (staked) balance of the current account. -/
+@[pf_inline] def lockedBalance : NearToken :=
+  Runtime.accountLockedBalance128
+
+/-- Legacy UInt64 locked balance. Traps if the locked amount exceeds UInt64. -/
+@[pf_inline] def lockedBalanceLo : UInt64 := Runtime.accountLockedBalance
+
+/-- Complete transaction-signer account id. View-forbidden; init/entry only. -/
+@[pf_inline] def signer : AccountId :=
+  Runtime.signerAccountId
+
+/-- Legacy low word. Not an identity; use `signer` for authorization. -/
+@[pf_inline] def signerLo : UInt64 := Runtime.signer
+
+/-- Signer public-key little-endian windows over the 33 wire bytes
+(1 curve tag byte + 32 key bytes); `signerPkW4` carries only byte 32.
+View-forbidden; init/entry only. -/
+@[pf_inline] def signerPkW0 : UInt64 := Runtime.signerPk
+@[pf_inline] def signerPkW1 : UInt64 := Runtime.signerPkW1
+@[pf_inline] def signerPkW2 : UInt64 := Runtime.signerPkW2
+@[pf_inline] def signerPkW3 : UInt64 := Runtime.signerPkW3
+@[pf_inline] def signerPkW4 : UInt64 := Runtime.signerPkW4
+
+/-- `random_seed` little-endian windows (32 bytes). View-safe, but the value is the
+block's public VRF output — never secret, never user-specific. -/
+@[pf_inline] def randomSeedW0 : UInt64 := Runtime.randomSeed
+@[pf_inline] def randomSeedW1 : UInt64 := Runtime.randomSeedW1
+@[pf_inline] def randomSeedW2 : UInt64 := Runtime.randomSeedW2
+@[pf_inline] def randomSeedW3 : UInt64 := Runtime.randomSeedW3
+
 end Context
 
 namespace Logs

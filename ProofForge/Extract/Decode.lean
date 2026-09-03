@@ -79,6 +79,54 @@ private def nearRuntimeLeaf? (e : Expr) : Option Ops.Val :=
     some Ops.Val.nearCurrentAccountIdW6
   else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.currentAccountIdW7 then
     some Ops.Val.nearCurrentAccountIdW7
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.epochHeight then
+    some Ops.Val.nearEpochHeight
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.prepaidGas then
+    some Ops.Val.nearPrepaidGas
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.usedGas then
+    some Ops.Val.nearUsedGas
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.accountLockedBalance then
+    some Ops.Val.nearAccountLockedBalance
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.accountLockedBalanceW0 then
+    some Ops.Val.nearAccountLockedBalanceW0
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.accountLockedBalanceW1 then
+    some Ops.Val.nearAccountLockedBalanceW1
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signer then
+    some Ops.Val.nearSigner
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signerLen then
+    some Ops.Val.nearSignerLen
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signerW1 then
+    some Ops.Val.nearSignerW1
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signerW2 then
+    some Ops.Val.nearSignerW2
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signerW3 then
+    some Ops.Val.nearSignerW3
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signerW4 then
+    some Ops.Val.nearSignerW4
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signerW5 then
+    some Ops.Val.nearSignerW5
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signerW6 then
+    some Ops.Val.nearSignerW6
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signerW7 then
+    some Ops.Val.nearSignerW7
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signerPk then
+    some Ops.Val.nearSignerPk
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signerPkW1 then
+    some Ops.Val.nearSignerPkW1
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signerPkW2 then
+    some Ops.Val.nearSignerPkW2
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signerPkW3 then
+    some Ops.Val.nearSignerPkW3
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.signerPkW4 then
+    some Ops.Val.nearSignerPkW4
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.randomSeed then
+    some Ops.Val.nearRandomSeed
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.randomSeedW1 then
+    some Ops.Val.nearRandomSeedW1
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.randomSeedW2 then
+    some Ops.Val.nearRandomSeedW2
+  else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.randomSeedW3 then
+    some Ops.Val.nearRandomSeedW3
   else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseResultsCount then
     some Ops.Val.nearPromiseResultsCount
   else none
@@ -371,6 +419,10 @@ private partial def asValNamed (env : Environment) (fuel : Nat) (n : Name) (e : 
         if leaf == "w0" then some Ops.Val.nearAccountBalanceW0
         else if leaf == "w1" then some Ops.Val.nearAccountBalanceW1
         else none
+      else if isConstNamed baseE ``ProofForge.Wasm.Near.Runtime.accountLockedBalance128 then
+        if leaf == "w0" then some Ops.Val.nearAccountLockedBalanceW0
+        else if leaf == "w1" then some Ops.Val.nearAccountLockedBalanceW1
+        else none
       else
         let projected := mkApp (mkConst (limbConst leaf)) baseE
         match reduceCtorProjection? env projected with
@@ -405,6 +457,15 @@ private partial def asValNamed (env : Environment) (fuel : Nat) (n : Name) (e : 
           | "w3" => .nearCurrentAccountIdW3 | "w4" => .nearCurrentAccountIdW4
           | "w5" => .nearCurrentAccountIdW5 | "w6" => .nearCurrentAccountIdW6
           | _ => .nearCurrentAccountIdW7)
+      else if isConstNamed baseE ``ProofForge.Wasm.Near.Runtime.signerAccountId ||
+          endsWith baseE ".signerAccountId" then
+        some (match leaf with
+          | "length" => .nearSignerLen
+          | "w0" => .nearSigner
+          | "w1" => .nearSignerW1 | "w2" => .nearSignerW2
+          | "w3" => .nearSignerW3 | "w4" => .nearSignerW4
+          | "w5" => .nearSignerW5 | "w6" => .nearSignerW6
+          | _ => .nearSignerW7)
       else
         match asVal env fuel baseE with
         | some b => some (flattenField b leaf)

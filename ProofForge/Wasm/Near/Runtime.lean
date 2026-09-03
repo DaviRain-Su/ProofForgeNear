@@ -307,6 +307,77 @@ Use `accountBalance128` for the lossless, view-safe amount. -/
 def accountBalance128 : NearToken :=
   { w0 := accountBalanceW0, w1 := accountBalanceW1 }
 
+/-- Current epoch height. View-safe `env.epoch_height() -> u64`. -/
+@[irreducible] def epochHeight : UInt64 := 0
+
+/-- Gas prepaid by the enclosing transaction. View-forbidden (`ProhibitedInView`):
+init/entry only, like `predecessor`. -/
+@[irreducible] def prepaidGas : UInt64 := 0
+
+/-- Gas burnt so far in this invocation. View-forbidden (`ProhibitedInView`):
+init/entry only, like `predecessor`. -/
+@[irreducible] def usedGas : UInt64 := 0
+
+/-- Legacy UInt64 `account_locked_balance`, trapping when its high word is nonzero.
+Use `accountLockedBalance128` for the lossless, view-safe amount. -/
+@[irreducible] def accountLockedBalance : UInt64 := 0
+
+@[irreducible] def accountLockedBalanceW0 : UInt64 := 0
+@[irreducible] def accountLockedBalanceW1 : UInt64 := 0
+
+/-- Complete locked (staked) balance as the host's little-endian u128. View-safe. -/
+def accountLockedBalance128 : NearToken :=
+  { w0 := accountLockedBalanceW0, w1 := accountLockedBalanceW1 }
+
+/--
+`signer_account_id` as the first 8 bytes of the UTF-8 account id, little-endian.
+View-forbidden (`ProhibitedInView`): init/entry only, and the emitter fail-closes views
+that mention it. This legacy w0 projection is not an identity; `signerAccountId` owns
+the complete 9-leaf value.
+-/
+@[irreducible] def signer : UInt64 := 0
+
+@[irreducible] def signerLen : UInt64 := 0
+@[irreducible] def signerW1 : UInt64 := 0
+@[irreducible] def signerW2 : UInt64 := 0
+@[irreducible] def signerW3 : UInt64 := 0
+@[irreducible] def signerW4 : UInt64 := 0
+@[irreducible] def signerW5 : UInt64 := 0
+@[irreducible] def signerW6 : UInt64 := 0
+@[irreducible] def signerW7 : UInt64 := 0
+
+/-- Complete transaction-signer account id. `signer` remains the legacy w0 leaf. -/
+def signerAccountId : AccountId :=
+  { length := signerLen
+    w0 := signer
+    w1 := signerW1
+    w2 := signerW2
+    w3 := signerW3
+    w4 := signerW4
+    w5 := signerW5
+    w6 := signerW6
+    w7 := signerW7 }
+
+/--
+`signer_account_pk`: the 33-byte public key (1 curve tag byte + 32 key bytes) as five
+little-endian u64 windows; `signerPkW4` carries only byte 32. View-forbidden
+(`ProhibitedInView`): init/entry only.
+-/
+@[irreducible] def signerPk : UInt64 := 0
+@[irreducible] def signerPkW1 : UInt64 := 0
+@[irreducible] def signerPkW2 : UInt64 := 0
+@[irreducible] def signerPkW3 : UInt64 := 0
+@[irreducible] def signerPkW4 : UInt64 := 0
+
+/--
+`random_seed` as four little-endian u64 windows over its 32 bytes. View-safe, but it is
+the block's public VRF output — never secret, never user-specific.
+-/
+@[irreducible] def randomSeed : UInt64 := 0
+@[irreducible] def randomSeedW1 : UInt64 := 0
+@[irreducible] def randomSeedW2 : UInt64 := 0
+@[irreducible] def randomSeedW3 : UInt64 := 0
+
 /-!
 Pure full-width token arithmetic leaves. Wasm i64 arithmetic wraps, so result limbs are modular;
 callers must enforce the matching `Ok` predicate before using them as checked arithmetic. Keeping

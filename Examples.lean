@@ -45,3 +45,5 @@ import Examples.Near.NearStorageRegistration
 import Examples.Near.NearTokenArithmetic
 import Examples.Near.NearTokenStorage
 import Examples.Near.NearVector
+import Examples.Near.NearChain
+import Examples.Near.NearSigner

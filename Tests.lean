@@ -11,6 +11,8 @@ import Tests.LangSpec
 import Tests.LayoutSpec
 import Tests.NearBytesSpec
 import Tests.NearCtxSpec
+import Tests.NearChainSpec
+import Tests.NearSignerSpec
 import Tests.NearFtReceiverDualSpec
 import Tests.NearFtReceiverValueSpec
 import Tests.NearFungibleLedgerSpec

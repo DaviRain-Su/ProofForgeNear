@@ -58,6 +58,31 @@ private def nearLeaf (kind : ProofForge.Wasm.Near.Ops.ValKind) : Val :=
 @[match_pattern] def Val.nearCurrentAccountIdW5 : Val := nearLeaf .currentAccountIdW5
 @[match_pattern] def Val.nearCurrentAccountIdW6 : Val := nearLeaf .currentAccountIdW6
 @[match_pattern] def Val.nearCurrentAccountIdW7 : Val := nearLeaf .currentAccountIdW7
+@[match_pattern] def Val.nearEpochHeight : Val := nearLeaf .epochHeight
+@[match_pattern] def Val.nearPrepaidGas : Val := nearLeaf .prepaidGas
+@[match_pattern] def Val.nearUsedGas : Val := nearLeaf .usedGas
+@[match_pattern] def Val.nearAccountLockedBalance : Val := nearLeaf .accountLockedBalance
+@[match_pattern] def Val.nearAccountLockedBalanceW0 : Val := nearLeaf .accountLockedBalanceW0
+@[match_pattern] def Val.nearAccountLockedBalanceW1 : Val := nearLeaf .accountLockedBalanceW1
+@[match_pattern] def Val.nearSigner : Val := nearLeaf .signer
+@[match_pattern] def Val.nearSignerLen : Val := nearLeaf .signerLen
+@[match_pattern] def Val.nearSignerW1 : Val := nearLeaf .signerW1
+@[match_pattern] def Val.nearSignerW2 : Val := nearLeaf .signerW2
+@[match_pattern] def Val.nearSignerW3 : Val := nearLeaf .signerW3
+@[match_pattern] def Val.nearSignerW4 : Val := nearLeaf .signerW4
+@[match_pattern] def Val.nearSignerW5 : Val := nearLeaf .signerW5
+@[match_pattern] def Val.nearSignerW6 : Val := nearLeaf .signerW6
+@[match_pattern] def Val.nearSignerW7 : Val := nearLeaf .signerW7
+@[match_pattern] def Val.nearSignerPk : Val := nearLeaf .signerPk
+@[match_pattern] def Val.nearSignerPkW1 : Val := nearLeaf .signerPkW1
+@[match_pattern] def Val.nearSignerPkW2 : Val := nearLeaf .signerPkW2
+@[match_pattern] def Val.nearSignerPkW3 : Val := nearLeaf .signerPkW3
+@[match_pattern] def Val.nearSignerPkW4 : Val := nearLeaf .signerPkW4
+@[match_pattern] def Val.nearRandomSeed : Val := nearLeaf .randomSeed
+@[match_pattern] def Val.nearRandomSeedW1 : Val := nearLeaf .randomSeedW1
+@[match_pattern] def Val.nearRandomSeedW2 : Val := nearLeaf .randomSeedW2
+@[match_pattern] def Val.nearRandomSeedW3 : Val := nearLeaf .randomSeedW3
+
 
 @[match_pattern] def Val.nearTransientBuffer64Get (capacity : Nat) (index : Val) : Val :=
   .ext (.near (.transientBuffer64Get capacity)) #[index]

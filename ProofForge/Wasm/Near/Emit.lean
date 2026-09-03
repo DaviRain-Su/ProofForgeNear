@@ -67,6 +67,13 @@ private def promiseResultReg : Nat := 4
 not alias scalar/raw/callback reads and its status is always checked before its length. -/
 private def stateMetadataReg : Nat := 5
 
+/-- Signer account-id register; scratch is disjoint from bounded input (256+). -/
+private def signerAccountReg : Nat := 6
+/-- Signer public-key register (33 bytes: curve tag + key). -/
+private def signerPkReg : Nat := 7
+/-- Random-seed register (32 bytes). -/
+private def randomSeedReg : Nat := 8
+
 private def panicOverflowOff : Nat := 2048
 private def panicDivOff : Nat := 2057
 private def panicInputOff : Nat := 2072
@@ -93,6 +100,15 @@ private def stateMetadataOff : Nat := 192
 private def stateMetadataLength : Nat := 16
 private def stateMetadataMagic : UInt64 := 0x31305453524e4650
 
+/-- 64-byte signer account scratch; bounded input starts at 256+68, keys at 1024. -/
+private def signerAccountOff : Nat := 336
+/-- 33-byte signer public-key scratch. -/
+private def signerPkOff : Nat := 400
+/-- 32-byte random-seed scratch. -/
+private def randomSeedOff : Nat := 464
+/-- 16-byte locked-balance write target (memory-ptr ABI). -/
+private def accountLockedBalanceOff : Nat := 496
+
 /-- Canonical Borsh input is copied only after its register length is bounded. The largest frame
 is 68 bytes and therefore remains disjoint from context scratch and storage keys. -/
 private def boundedInputOff : Nat := 256
@@ -104,6 +120,18 @@ private def predecessorWordLocal : Nat → String
 private def currentAccountWordLocal : Nat → String
   | 0 => "$pf_self"
   | i => "$pf_self" ++ toString i
+
+private def signerWordLocal : Nat → String
+  | 0 => "$pf_signer"
+  | i => "$pf_signer" ++ toString i
+
+private def signerPkWordLocal : Nat → String
+  | 0 => "$pf_pk"
+  | i => "$pf_pk" ++ toString i
+
+private def randomSeedWordLocal : Nat → String
+  | 0 => "$pf_seed"
+  | i => "$pf_seed" ++ toString i
 
 private def keyLayout (p : Program ValKind OpExt) : Array (String × Nat × Nat) :=
   Id.run do
@@ -603,6 +631,30 @@ private partial def renderVal (st : EState) (v : Val ValKind) : Except String St
   | .ext .currentAccountIdW5 #[] => .ok "(local.get $pf_self5)"
   | .ext .currentAccountIdW6 #[] => .ok "(local.get $pf_self6)"
   | .ext .currentAccountIdW7 #[] => .ok "(local.get $pf_self7)"
+  | .ext .epochHeight #[] => .ok "(call $pf_epoch_height)"
+  | .ext .prepaidGas #[] => .ok "(call $pf_prepaid_gas)"
+  | .ext .usedGas #[] => .ok "(call $pf_used_gas)"
+  | .ext .accountLockedBalance #[] => .ok "(local.get $pf_lbal)"
+  | .ext .accountLockedBalanceW0 #[] => .ok "(local.get $pf_lbal)"
+  | .ext .accountLockedBalanceW1 #[] => .ok "(local.get $pf_lbal_hi)"
+  | .ext .signer #[] => .ok "(local.get $pf_signer)"
+  | .ext .signerLen #[] => .ok "(local.get $pf_signer_len)"
+  | .ext .signerW1 #[] => .ok "(local.get $pf_signer1)"
+  | .ext .signerW2 #[] => .ok "(local.get $pf_signer2)"
+  | .ext .signerW3 #[] => .ok "(local.get $pf_signer3)"
+  | .ext .signerW4 #[] => .ok "(local.get $pf_signer4)"
+  | .ext .signerW5 #[] => .ok "(local.get $pf_signer5)"
+  | .ext .signerW6 #[] => .ok "(local.get $pf_signer6)"
+  | .ext .signerW7 #[] => .ok "(local.get $pf_signer7)"
+  | .ext .signerPk #[] => .ok "(local.get $pf_pk)"
+  | .ext .signerPkW1 #[] => .ok "(local.get $pf_pk1)"
+  | .ext .signerPkW2 #[] => .ok "(local.get $pf_pk2)"
+  | .ext .signerPkW3 #[] => .ok "(local.get $pf_pk3)"
+  | .ext .signerPkW4 #[] => .ok "(local.get $pf_pk4)"
+  | .ext .randomSeed #[] => .ok "(local.get $pf_seed)"
+  | .ext .randomSeedW1 #[] => .ok "(local.get $pf_seed1)"
+  | .ext .randomSeedW2 #[] => .ok "(local.get $pf_seed2)"
+  | .ext .randomSeedW3 #[] => .ok "(local.get $pf_seed3)"
   | .ext (.transientBuffer64Get capacity) #[index] => do
       let i ← renderVal st index
       return "(call $pf_buffer64_get (i64.const " ++ toString capacity ++ ") " ++ i ++ ")"
@@ -2855,6 +2907,28 @@ private def accountBalanceKinds : Array ValKind := #[
   .accountBalance, .accountBalanceW0, .accountBalanceW1
 ]
 
+private def accountLockedBalanceKinds : Array ValKind := #[
+  .accountLockedBalance, .accountLockedBalanceW0, .accountLockedBalanceW1
+]
+
+/-- Both gas reads are `ProhibitedInView`; gate them together. -/
+private def gasKinds : Array ValKind := #[
+  .prepaidGas, .usedGas
+]
+
+private def signerKinds : Array ValKind := #[
+  .signer, .signerLen, .signerW1, .signerW2,
+  .signerW3, .signerW4, .signerW5, .signerW6, .signerW7
+]
+
+private def signerPkKinds : Array ValKind := #[
+  .signerPk, .signerPkW1, .signerPkW2, .signerPkW3, .signerPkW4
+]
+
+private def randomSeedKinds : Array ValKind := #[
+  .randomSeed, .randomSeedW1, .randomSeedW2, .randomSeedW3
+]
+
 private def methodUsesAny (kinds : Array ValKind) (method : Method ValKind OpExt) : Bool :=
   kinds.any (methodUses · method)
 
@@ -3188,6 +3262,24 @@ private def loadAccountId (hostCall lenLocal : String) (register off level : Nat
     indent level ("(local.set " ++ wordLocal i ++ " (i64.load (i32.const " ++
       toString (off + i * 8) ++ ")))")
 
+/-- Load a fixed-width register blob into word locals, fail-closed on a length mismatch. -/
+private def loadFixedRegister (hostCall : String) (register off level : Nat)
+    (expectedBytes limbs : Nat) (wordLocal : Nat → String) : Array String :=
+  #[
+    indent level ("(call " ++ hostCall ++ " (i64.const " ++ toString register ++ "))"),
+    indent level ("(if (i64.ne (call $pf_register_len (i64.const " ++ toString register ++
+      ")) (i64.const " ++ toString expectedBytes ++ "))"),
+    indent (level + 2) "(then",
+    indent (level + 4) ("(call $pf_panic_utf8 (i64.const 10) (i64.const " ++
+      toString panicAccountIdOff ++ "))"),
+    indent (level + 2) "))"
+  ] ++ clearAccountBuffer off level ++ #[
+    indent level ("(call $pf_read_register (i64.const " ++ toString register ++
+      ") (i64.const " ++ toString off ++ "))")
+  ] ++ (List.range limbs).toArray.map fun i =>
+    indent level ("(local.set " ++ wordLocal i ++ " (i64.load (i32.const " ++
+      toString (off + i * 8) ++ ")))")
+
 private def privateGuard (p : Program ValKind OpExt) (method : Method ValKind OpExt)
     (level : Nat) : Except String (Array String) := do
   let (off, len) ← privateMessageOf p method
@@ -3217,6 +3309,12 @@ private def loadHostPrelude (method : Method ValKind OpExt) (view : Bool) (level
     throw s!"extract/unsupported: {method.ixName} view cannot read predecessor"
   if view && methodUsesAny attachedDepositKinds method then
     throw s!"extract/unsupported: {method.ixName} view cannot read attachedDeposit"
+  if view && methodUsesAny signerKinds method then
+    throw s!"extract/unsupported: {method.ixName} view cannot read signer"
+  if view && methodUsesAny signerPkKinds method then
+    throw s!"extract/unsupported: {method.ixName} view cannot read signerPk"
+  if view && methodUsesAny gasKinds method then
+    throw s!"extract/unsupported: {method.ixName} view cannot read gas"
   let mut lines : Array String := #[]
   if methodUsesAny predecessorKinds method then
     lines := lines ++ loadAccountId "$pf_predecessor_account_id" "$pf_pred_len"
@@ -3264,6 +3362,33 @@ private def loadHostPrelude (method : Method ValKind OpExt) (view : Bool) (level
     ] ++ clearAccountBuffer currentAccountOff level ++ #[
       indent level ("(call $pf_read_register (i64.const 3) (i64.const " ++
         toString currentAccountOff ++ "))")
+    ]
+  if methodUsesAny signerKinds method then
+    lines := lines ++ loadAccountId "$pf_signer_account_id" "$pf_signer_len"
+      signerAccountReg signerAccountOff level signerWordLocal
+  if methodUsesAny signerPkKinds method then
+    lines := lines ++ loadFixedRegister "$pf_signer_account_pk" signerPkReg signerPkOff
+      level 33 5 signerPkWordLocal
+  if methodUsesAny randomSeedKinds method then
+    lines := lines ++ loadFixedRegister "$pf_random_seed" randomSeedReg randomSeedOff
+      level 32 4 randomSeedWordLocal
+  if methodUsesAny accountLockedBalanceKinds method then
+    lines := lines.push (indent level ("(call $pf_account_locked_balance (i64.const " ++
+      toString accountLockedBalanceOff ++ "))"))
+    if methodUses .accountLockedBalance method then
+      lines := lines ++ #[
+        indent level ("(if (i64.ne (i64.load (i32.const " ++
+          toString (accountLockedBalanceOff + 8) ++ ")) (i64.const 0))"),
+        indent (level + 2) "(then",
+        indent (level + 4) ("(call $pf_panic_utf8 (i64.const 8) (i64.const " ++
+          toString panicOverflowOff ++ "))"),
+        indent (level + 2) "))"
+      ]
+    lines := lines ++ #[
+      indent level ("(local.set $pf_lbal (i64.load (i32.const " ++
+        toString accountLockedBalanceOff ++ ")))"),
+      indent level ("(local.set $pf_lbal_hi (i64.load (i32.const " ++
+        toString (accountLockedBalanceOff + 8) ++ ")))")
     ]
   return lines
 
@@ -3795,6 +3920,19 @@ private def renderFn (p : Program ValKind OpExt)
   if isPrivate || methodUsesAny currentAccountKinds method then
     for i in List.range 8 do
       lines := lines.push ("    (local " ++ currentAccountWordLocal i ++ " i64)")
+  if methodUsesAny accountLockedBalanceKinds method then
+    lines := lines.push "    (local $pf_lbal i64)"
+    lines := lines.push "    (local $pf_lbal_hi i64)"
+  if methodUsesAny signerKinds method then
+    lines := lines.push "    (local $pf_signer_len i64)"
+    for i in List.range 8 do
+      lines := lines.push ("    (local " ++ signerWordLocal i ++ " i64)")
+  if methodUsesAny signerPkKinds method then
+    for i in List.range 5 do
+      lines := lines.push ("    (local " ++ signerPkWordLocal i ++ " i64)")
+  if methodUsesAny randomSeedKinds method then
+    for i in List.range 4 do
+      lines := lines.push ("    (local " ++ randomSeedWordLocal i ++ " i64)")
   for slot in p.slots do
     lines := lines.push ("    (local " ++ localOfSlot slot.name ++ " i64)")
   for i in List.range (sourceLocalCount method.ops) do
@@ -5550,6 +5688,27 @@ def emit (p : IR.Program) : Except String String := do
   if programHasPrivate p || currentAccountKinds.any (programUses · p) || programChainsPromise p then
     lines := lines.push
       "  (import \"env\" \"current_account_id\" (func $pf_current_account_id (param i64)))"
+  if accountLockedBalanceKinds.any (programUses · p) then
+    lines := lines.push
+      "  (import \"env\" \"account_locked_balance\" (func $pf_account_locked_balance (param i64)))"
+  if programUses .epochHeight p then
+    lines := lines.push
+      "  (import \"env\" \"epoch_height\" (func $pf_epoch_height (result i64)))"
+  if programUses .prepaidGas p then
+    lines := lines.push
+      "  (import \"env\" \"prepaid_gas\" (func $pf_prepaid_gas (result i64)))"
+  if programUses .usedGas p then
+    lines := lines.push
+      "  (import \"env\" \"used_gas\" (func $pf_used_gas (result i64)))"
+  if signerKinds.any (programUses · p) then
+    lines := lines.push
+      "  (import \"env\" \"signer_account_id\" (func $pf_signer_account_id (param i64)))"
+  if signerPkKinds.any (programUses · p) then
+    lines := lines.push
+      "  (import \"env\" \"signer_account_pk\" (func $pf_signer_account_pk (param i64)))"
+  if randomSeedKinds.any (programUses · p) then
+    lines := lines.push
+      "  (import \"env\" \"random_seed\" (func $pf_random_seed (param i64)))"
   lines := lines.push "  (memory (export \"memory\") 1)"
   lines := lines ++ dataSection p
   lines := lines ++ logData

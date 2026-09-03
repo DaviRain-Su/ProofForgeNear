@@ -9,6 +9,7 @@ structure Entry where
 def entries : Array Entry := #[
   { name := "Counter", digest := "121a0c8f7e697642" },
   { name := "TokenShape", digest := "f824063d978669c6" },
+  { name := "NearChain", digest := "aaf6b75f409f9188" },
   { name := "NearCtx", digest := "8233f27ab39f6133" },
   { name := "NearBytes", digest := "3b15034031dcf0a2" },
   { name := "NearFungibleTokenEvent", digest := "768db0d9cec95f94" },
@@ -47,7 +48,8 @@ def entries : Array Entry := #[
   { name := "NearPromise", digest := "4376e3bda34c941b" },
   { name := "NearPromiseHandle", digest := "c5a967669da142d8" },
   { name := "NearPromiseResult", digest := "7f65ba128b01a035" },
-  { name := "NearMigration", digest := "19a760409263b854" }
+  { name := "NearMigration", digest := "19a760409263b854" },
+  { name := "NearSigner", digest := "1cc6cde0752468cb" }
 ]
 
 def names : Array String := entries.map (·.name)

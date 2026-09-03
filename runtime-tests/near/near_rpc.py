@@ -193,6 +193,19 @@ class NearClient:
             raise NearRpcError(f"view_account {account_id}: {res['error']}")
         return int(res["amount"])
 
+    def view_account_locked(self, account_id: str) -> int:
+        res = self.rpc_call(
+            "query",
+            {
+                "request_type": "view_account",
+                "finality": "optimistic",
+                "account_id": account_id,
+            },
+        )
+        if res.get("error"):
+            raise NearRpcError(f"view_account {account_id}: {res['error']}")
+        return int(res["locked"])
+
     def view_state_values(self, account_id: str | None = None) -> dict[bytes, bytes]:
         """Return the complete raw key/value state for one sandbox account.
 

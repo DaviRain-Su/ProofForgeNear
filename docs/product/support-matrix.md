@@ -38,6 +38,9 @@ ProofForge NEAR is a **checkout-first Lean 4 → WAT → wat2wasm** compiler for
 |---|---|---|
 | `Wasm.Near.Sdk` | Bounded NEAR raw-u64 / Borsh / NEP-shaped subset | Complete NEP-141/145/148 ABI |
 | `deployable=false` on `pf build` | Engineering artifacts | Public-network endorsement |
+| `Near.Sdk.Hash` | View-safe `sha256` / `keccak256` / `keccak512` / `ripemd160` / `ecrecover` / `ed25519_verify` with known-vector sandbox gates | Ethereum-style 27/28 `v`, keccak = SHA3, variable-length signatures |
+| `Near.Sdk.Store.Lazy` / `LazyOption` | Bare-prefix single-value `UInt64` cells with immediate writes | Rust cache/`Drop` flush timing, generic value types |
+| `Near.Sdk.Context` (signer/gas/chain) | `signer_account_id`/`pk`, `epoch_height`, `prepaid_gas`/`used_gas`, `account_locked_balance`, `random_seed`, `state_exists` | Full near-sdk `env` surface |
 
 ## Proof boundary
 

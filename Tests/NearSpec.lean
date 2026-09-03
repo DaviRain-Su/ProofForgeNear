@@ -59,7 +59,7 @@ open ProofForge
 #guard ProofForge.Wasm.Near.Registry.digestOf "NearPromise" == some "4376e3bda34c941b"
 #guard ProofForge.Wasm.Near.Registry.digestOf "NearPromiseHandle" == some "c5a967669da142d8"
 #guard ProofForge.Wasm.Near.Registry.digestOf "NearPromiseResult" == some "7f65ba128b01a035"
-#guard ProofForge.Wasm.Near.Registry.digestOf "NearMigration" == some "19a760409263b854"
+#guard ProofForge.Wasm.Near.Registry.digestOf "NearMigration" == some "10461b071ae0259e"
 
 #guard ProofForge.Wasm.Near.Ops.OpExt.wellFormed
   (.logUtf8 "NEAR ✓" : ProofForge.Wasm.Near.Ops.OpExt ProofForge.Wasm.Near.Ops.Val)

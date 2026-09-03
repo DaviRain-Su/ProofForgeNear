@@ -66,4 +66,17 @@ def ResultBuffer.wellFormed (buffer : ResultBuffer) : Bool :=
 @[pf_inline] def ResultBuffer.byte (buffer : ResultBuffer) (index : UInt64) : UInt8 :=
   (Runtime.storageResultByte buffer index).toUInt8
 
+/-- The compiler-owned `STATE` envelope key (`PFNRST01 || schemaDigestLE`). Reading it is the
+migration surface; writing it stays compiler-owned and fail-closed. -/
+@[pf_inline] def stateKey : BoundedBytes 5 :=
+  { length := 5, values := #v[83, 84, 65, 84, 69] }
+
+/-- `state_exists()`: whether the compiler-owned STATE envelope exists (i.e. the contract has
+been initialized). View-safe. near-sdk parity note: raw `state_write` stays compiler-owned;
+whole-state Borsh `state_read` is superseded by exact per-slot reads plus the schema envelope. -/
+@[pf_inline] def stateExists : Bool :=
+  let buffer : ResultBuffer := 5
+  let _ := buffer.hasKey stateKey
+  buffer.status == 1
+
 end ProofForge.Wasm.Near.Sdk.Storage

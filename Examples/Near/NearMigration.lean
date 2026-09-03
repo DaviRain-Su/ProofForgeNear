@@ -37,6 +37,11 @@ def get (state : State) : UInt64 :=
 def revisionOf (state : State) : UInt64 :=
   state.revision
 
+/-- view：STATE envelope 是否存在(合约是否已初始化)。 -/
+@[pf_entry]
+def initialized (_state : State) : UInt64 :=
+  if stateExists then 1 else 0
+
 /-- Explicitly authenticated migration from the canonical one-field Counter schema. The current
 `State` argument is intentionally ignored: old data is decoded only from its exact prior key. -/
 @[pf_entry, pf_near_private, pf_near_migrate 0x8de0fef1e13b14ad]

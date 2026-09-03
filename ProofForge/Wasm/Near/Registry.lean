@@ -48,7 +48,7 @@ def entries : Array Entry := #[
   { name := "NearPromise", digest := "4376e3bda34c941b" },
   { name := "NearPromiseHandle", digest := "c5a967669da142d8" },
   { name := "NearPromiseResult", digest := "7f65ba128b01a035" },
-  { name := "NearMigration", digest := "19a760409263b854" },
+  { name := "NearMigration", digest := "10461b071ae0259e" },
   { name := "NearSigner", digest := "1cc6cde0752468cb" }
 ]
 

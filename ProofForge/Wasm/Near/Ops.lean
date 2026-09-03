@@ -136,6 +136,18 @@ inductive OpExt (V : Type) where
   | promiseTransferReturned (receiver : String) (amountLo amountHi : V)
   | promiseTransferAccountDetached (receiver : Array V) (amountLo amountHi : V)
   | promiseTransferAccountReturned (receiver : Array V) (amountLo amountHi : V)
+  | promiseCreateAccountDetached (receiver : String)
+  | promiseCreateAccountReturned (receiver : String)
+  | promiseDeployContractDetached (codeCapacity : Nat) (receiver : String) (code : Array V)
+  | promiseDeployContractReturned (codeCapacity : Nat) (receiver : String) (code : Array V)
+  | promiseStakeDetached (receiver : String) (publicKey : Array V) (stakeLo stakeHi : V)
+  | promiseStakeReturned (receiver : String) (publicKey : Array V) (stakeLo stakeHi : V)
+  | promiseAddKeyDetached (receiver : String) (publicKey : Array V) (nonce : V)
+  | promiseAddKeyReturned (receiver : String) (publicKey : Array V) (nonce : V)
+  | promiseDeleteKeyDetached (receiver : String) (publicKey : Array V)
+  | promiseDeleteKeyReturned (receiver : String) (publicKey : Array V)
+  | promiseDeleteAccountDetached (receiver beneficiary : String)
+  | promiseDeleteAccountReturned (receiver beneficiary : String)
   | promiseFtOnTransferReturned (receiver sender : Array V) (amountLo amountHi : V)
       (message : Array V)
   | promiseFtOnTransferThenResolveReturned (receiver sender : Array V) (amountLo amountHi : V)
@@ -321,6 +333,26 @@ def OpExt.wellFormed : OpExt Val → Bool
   | .promiseTransferAccountReturned receiver amountLo amountHi =>
       accountIdFrameWellFormed receiver && amountLo.wellFormed ValKind.arity &&
         amountHi.wellFormed ValKind.arity
+  | .promiseCreateAccountDetached receiver
+  | .promiseCreateAccountReturned receiver =>
+      Codec.accountIdLiteralValid receiver
+  | .promiseDeployContractDetached codeCapacity receiver code
+  | .promiseDeployContractReturned codeCapacity receiver code =>
+      Codec.accountIdLiteralValid receiver && storageFrameWellFormed codeCapacity code
+  | .promiseStakeDetached receiver publicKey stakeLo stakeHi
+  | .promiseStakeReturned receiver publicKey stakeLo stakeHi =>
+      Codec.accountIdLiteralValid receiver && packedWords32WellFormed publicKey &&
+        stakeLo.wellFormed ValKind.arity && stakeHi.wellFormed ValKind.arity
+  | .promiseAddKeyDetached receiver publicKey nonce
+  | .promiseAddKeyReturned receiver publicKey nonce =>
+      Codec.accountIdLiteralValid receiver && packedWords32WellFormed publicKey &&
+        nonce.wellFormed ValKind.arity
+  | .promiseDeleteKeyDetached receiver publicKey
+  | .promiseDeleteKeyReturned receiver publicKey =>
+      Codec.accountIdLiteralValid receiver && packedWords32WellFormed publicKey
+  | .promiseDeleteAccountDetached receiver beneficiary
+  | .promiseDeleteAccountReturned receiver beneficiary =>
+      Codec.accountIdLiteralValid receiver && Codec.accountIdLiteralValid beneficiary
   | .promiseFtOnTransferReturned receiver sender amountLo amountHi message =>
       accountIdFrameWellFormed receiver && accountIdFrameWellFormed sender &&
         packedBytes64FrameWellFormed message && amountLo.wellFormed ValKind.arity &&
@@ -580,6 +612,30 @@ private def mapCfgPayload (mapValue : Val → Val) : OpExt Val → OpExt Val
   | .promiseTransferAccountReturned receiver amountLo amountHi =>
       .promiseTransferAccountReturned (receiver.map mapValue)
         (mapValue amountLo) (mapValue amountHi)
+  | .promiseCreateAccountDetached receiver => .promiseCreateAccountDetached receiver
+  | .promiseCreateAccountReturned receiver => .promiseCreateAccountReturned receiver
+  | .promiseDeployContractDetached codeCapacity receiver code =>
+      .promiseDeployContractDetached codeCapacity receiver (code.map mapValue)
+  | .promiseDeployContractReturned codeCapacity receiver code =>
+      .promiseDeployContractReturned codeCapacity receiver (code.map mapValue)
+  | .promiseStakeDetached receiver publicKey stakeLo stakeHi =>
+      .promiseStakeDetached receiver (publicKey.map mapValue)
+        (mapValue stakeLo) (mapValue stakeHi)
+  | .promiseStakeReturned receiver publicKey stakeLo stakeHi =>
+      .promiseStakeReturned receiver (publicKey.map mapValue)
+        (mapValue stakeLo) (mapValue stakeHi)
+  | .promiseAddKeyDetached receiver publicKey nonce =>
+      .promiseAddKeyDetached receiver (publicKey.map mapValue) (mapValue nonce)
+  | .promiseAddKeyReturned receiver publicKey nonce =>
+      .promiseAddKeyReturned receiver (publicKey.map mapValue) (mapValue nonce)
+  | .promiseDeleteKeyDetached receiver publicKey =>
+      .promiseDeleteKeyDetached receiver (publicKey.map mapValue)
+  | .promiseDeleteKeyReturned receiver publicKey =>
+      .promiseDeleteKeyReturned receiver (publicKey.map mapValue)
+  | .promiseDeleteAccountDetached receiver beneficiary =>
+      .promiseDeleteAccountDetached receiver beneficiary
+  | .promiseDeleteAccountReturned receiver beneficiary =>
+      .promiseDeleteAccountReturned receiver beneficiary
   | .promiseFtOnTransferReturned receiver sender amountLo amountHi message =>
       .promiseFtOnTransferReturned (receiver.map mapValue) (sender.map mapValue)
         (mapValue amountLo) (mapValue amountHi) (message.map mapValue)
@@ -787,6 +843,17 @@ private def cfgPayloadValues : OpExt Val → Array Val
   | .promiseTransferAccountDetached receiver amountLo amountHi
   | .promiseTransferAccountReturned receiver amountLo amountHi =>
       receiver ++ #[amountLo, amountHi]
+  | .promiseCreateAccountDetached _ | .promiseCreateAccountReturned _ => #[]
+  | .promiseDeployContractDetached _ _ code
+  | .promiseDeployContractReturned _ _ code => code
+  | .promiseStakeDetached _ publicKey stakeLo stakeHi
+  | .promiseStakeReturned _ publicKey stakeLo stakeHi =>
+      publicKey ++ #[stakeLo, stakeHi]
+  | .promiseAddKeyDetached _ publicKey nonce
+  | .promiseAddKeyReturned _ publicKey nonce => publicKey ++ #[nonce]
+  | .promiseDeleteKeyDetached _ publicKey
+  | .promiseDeleteKeyReturned _ publicKey => publicKey
+  | .promiseDeleteAccountDetached _ _ | .promiseDeleteAccountReturned _ _ => #[]
   | .promiseFtOnTransferReturned receiver sender amountLo amountHi message =>
       receiver ++ sender ++ #[amountLo, amountHi] ++ message
   | .promiseFtOnTransferThenResolveReturned receiver sender amountLo amountHi message =>

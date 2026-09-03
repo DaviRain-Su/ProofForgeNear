@@ -2741,6 +2741,20 @@ partial def mentionsNearEffect (env : Environment) : Nat → Expr → Bool
         name == ``ProofForge.Wasm.Near.Runtime.promiseFunctionCallAnd8ThenReturned ||
         name == ``ProofForge.Wasm.Near.Runtime.promiseTransferDetached ||
         name == ``ProofForge.Wasm.Near.Runtime.promiseTransferReturned ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseTransferAccountDetached ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseTransferAccountReturned ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseCreateAccountDetached ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseCreateAccountReturned ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseDeployContractDetached ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseDeployContractReturned ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseStakeDetached ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseStakeReturned ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseAddKeyDetached ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseAddKeyReturned ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseDeleteKeyDetached ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseDeleteKeyReturned ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseDeleteAccountDetached ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseDeleteAccountReturned ||
         name == ``ProofForge.Wasm.Near.Runtime.promiseResultRead ||
         name == ``ProofForge.Wasm.Near.Runtime.transientBuffer64Begin ||
         name == ``ProofForge.Wasm.Near.Runtime.transientBuffer64Set ||
@@ -5034,6 +5048,103 @@ private def decodeNearEffect (env : Environment) (e : Expr) : Option (Array Ops.
                   .nearStorageRemove resultCapacity keyCapacity key
                 else
                   .nearStorageHasKey resultCapacity keyCapacity key
+            else none
+        | _, _ => none
+      else if (isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseCreateAccountDetached ||
+          isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseCreateAccountReturned) &&
+          e.getAppArgs.size ≥ 1 then
+        let args := e.getAppArgs
+        let returned := isConstNamed e
+          ``ProofForge.Wasm.Near.Runtime.promiseCreateAccountReturned
+        match staticString? env 64 args[args.size - 1]! with
+        | some receiver =>
+            if ProofForge.Wasm.Near.Codec.accountIdLiteralValid receiver then
+              some (if returned then
+                .nearPromiseCreateAccountReturned receiver
+              else
+                .nearPromiseCreateAccountDetached receiver)
+            else none
+        | none => none
+      else if (isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseDeployContractDetached ||
+          isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseDeployContractReturned) &&
+          e.getAppArgs.size ≥ 3 then
+        let args := e.getAppArgs
+        let returned := isConstNamed e
+          ``ProofForge.Wasm.Near.Runtime.promiseDeployContractReturned
+        match staticNatVal? env args[args.size - 3]!,
+            staticString? env 64 args[args.size - 2]! with
+        | some codeCapacity, some receiver =>
+            if ProofForge.Wasm.Near.Codec.accountIdLiteralValid receiver &&
+                ProofForge.Wasm.Near.Codec.storageCapacityValid codeCapacity then
+              (boundedStorageFrame? env codeCapacity args[args.size - 1]!).map fun code =>
+                if returned then
+                  .nearPromiseDeployContractReturned codeCapacity receiver code
+                else
+                  .nearPromiseDeployContractDetached codeCapacity receiver code
+            else none
+        | _, _ => none
+      else if (isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseStakeDetached ||
+          isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseStakeReturned) &&
+          e.getAppArgs.size ≥ 4 then
+        let args := e.getAppArgs
+        let returned := isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseStakeReturned
+        match staticString? env 64 args[args.size - 4]!,
+            nearCryptoBytes32Frame? env args[args.size - 3]!,
+            val env args[args.size - 2]!, val env args[args.size - 1]! with
+        | some receiver, some publicKey, some stakeLo, some stakeHi =>
+            if ProofForge.Wasm.Near.Codec.accountIdLiteralValid receiver then
+              some (if returned then
+                .nearPromiseStakeReturned receiver publicKey stakeLo stakeHi
+              else
+                .nearPromiseStakeDetached receiver publicKey stakeLo stakeHi)
+            else none
+        | _, _, _, _ => none
+      else if (isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseAddKeyDetached ||
+          isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseAddKeyReturned) &&
+          e.getAppArgs.size ≥ 3 then
+        let args := e.getAppArgs
+        let returned := isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseAddKeyReturned
+        match staticString? env 64 args[args.size - 3]!,
+            nearCryptoBytes32Frame? env args[args.size - 2]!,
+            val env args[args.size - 1]! with
+        | some receiver, some publicKey, some nonce =>
+            if ProofForge.Wasm.Near.Codec.accountIdLiteralValid receiver then
+              some (if returned then
+                .nearPromiseAddKeyReturned receiver publicKey nonce
+              else
+                .nearPromiseAddKeyDetached receiver publicKey nonce)
+            else none
+        | _, _, _ => none
+      else if (isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseDeleteKeyDetached ||
+          isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseDeleteKeyReturned) &&
+          e.getAppArgs.size ≥ 2 then
+        let args := e.getAppArgs
+        let returned := isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseDeleteKeyReturned
+        match staticString? env 64 args[args.size - 2]!,
+            nearCryptoBytes32Frame? env args[args.size - 1]! with
+        | some receiver, some publicKey =>
+            if ProofForge.Wasm.Near.Codec.accountIdLiteralValid receiver then
+              some (if returned then
+                .nearPromiseDeleteKeyReturned receiver publicKey
+              else
+                .nearPromiseDeleteKeyDetached receiver publicKey)
+            else none
+        | _, _ => none
+      else if (isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseDeleteAccountDetached ||
+          isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseDeleteAccountReturned) &&
+          e.getAppArgs.size ≥ 2 then
+        let args := e.getAppArgs
+        let returned := isConstNamed e
+          ``ProofForge.Wasm.Near.Runtime.promiseDeleteAccountReturned
+        match staticString? env 64 args[args.size - 2]!,
+            staticString? env 64 args[args.size - 1]! with
+        | some receiver, some beneficiary =>
+            if ProofForge.Wasm.Near.Codec.accountIdLiteralValid receiver &&
+                ProofForge.Wasm.Near.Codec.accountIdLiteralValid beneficiary then
+              some (if returned then
+                .nearPromiseDeleteAccountReturned receiver beneficiary
+              else
+                .nearPromiseDeleteAccountDetached receiver beneficiary)
             else none
         | _, _ => none
       else if let some fields := userCtorFields env e then

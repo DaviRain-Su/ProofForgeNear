@@ -200,6 +200,36 @@ private def projectOpExt
       | .promiseTransferAccountReturned receiver amountLo amountHi =>
           return .promiseTransferAccountReturned (← receiver.mapM _projectVal)
             (← _projectVal amountLo) (← _projectVal amountHi)
+      | .promiseCreateAccountDetached receiver =>
+          return .promiseCreateAccountDetached receiver
+      | .promiseCreateAccountReturned receiver =>
+          return .promiseCreateAccountReturned receiver
+      | .promiseDeployContractDetached codeCapacity receiver code =>
+          return .promiseDeployContractDetached codeCapacity receiver
+            (← code.mapM _projectVal)
+      | .promiseDeployContractReturned codeCapacity receiver code =>
+          return .promiseDeployContractReturned codeCapacity receiver
+            (← code.mapM _projectVal)
+      | .promiseStakeDetached receiver publicKey stakeLo stakeHi =>
+          return .promiseStakeDetached receiver (← publicKey.mapM _projectVal)
+            (← _projectVal stakeLo) (← _projectVal stakeHi)
+      | .promiseStakeReturned receiver publicKey stakeLo stakeHi =>
+          return .promiseStakeReturned receiver (← publicKey.mapM _projectVal)
+            (← _projectVal stakeLo) (← _projectVal stakeHi)
+      | .promiseAddKeyDetached receiver publicKey nonce =>
+          return .promiseAddKeyDetached receiver (← publicKey.mapM _projectVal)
+            (← _projectVal nonce)
+      | .promiseAddKeyReturned receiver publicKey nonce =>
+          return .promiseAddKeyReturned receiver (← publicKey.mapM _projectVal)
+            (← _projectVal nonce)
+      | .promiseDeleteKeyDetached receiver publicKey =>
+          return .promiseDeleteKeyDetached receiver (← publicKey.mapM _projectVal)
+      | .promiseDeleteKeyReturned receiver publicKey =>
+          return .promiseDeleteKeyReturned receiver (← publicKey.mapM _projectVal)
+      | .promiseDeleteAccountDetached receiver beneficiary =>
+          return .promiseDeleteAccountDetached receiver beneficiary
+      | .promiseDeleteAccountReturned receiver beneficiary =>
+          return .promiseDeleteAccountReturned receiver beneficiary
       | .promiseFtOnTransferReturned receiver sender amountLo amountHi message =>
           return .promiseFtOnTransferReturned (← receiver.mapM _projectVal)
             (← sender.mapM _projectVal) (← _projectVal amountLo) (← _projectVal amountHi)
@@ -559,6 +589,38 @@ def extOpCanon : Ops.OpExt (Wasm.IR.Val Ops.ValKind) → String
       s!"npromise.transfer.account.returned({canonValues receiver};" ++
         s!"{Wasm.IR.valCanon extValCanon amountLo}," ++
         s!"{Wasm.IR.valCanon extValCanon amountHi})"
+  | .promiseCreateAccountDetached receiver =>
+      s!"npromise.create.account.detached({receiver.toUTF8.size}:{receiver})"
+  | .promiseCreateAccountReturned receiver =>
+      s!"npromise.create.account.returned({receiver.toUTF8.size}:{receiver})"
+  | .promiseDeployContractDetached codeCapacity receiver code =>
+      s!"npromise.deploy.contract.detached.{codeCapacity}(" ++
+        s!"{receiver.toUTF8.size}:{receiver};{canonValues code})"
+  | .promiseDeployContractReturned codeCapacity receiver code =>
+      s!"npromise.deploy.contract.returned.{codeCapacity}(" ++
+        s!"{receiver.toUTF8.size}:{receiver};{canonValues code})"
+  | .promiseStakeDetached receiver publicKey stakeLo stakeHi =>
+      s!"npromise.stake.detached({receiver.toUTF8.size}:{receiver};{canonValues publicKey};" ++
+        s!"{Wasm.IR.valCanon extValCanon stakeLo},{Wasm.IR.valCanon extValCanon stakeHi})"
+  | .promiseStakeReturned receiver publicKey stakeLo stakeHi =>
+      s!"npromise.stake.returned({receiver.toUTF8.size}:{receiver};{canonValues publicKey};" ++
+        s!"{Wasm.IR.valCanon extValCanon stakeLo},{Wasm.IR.valCanon extValCanon stakeHi})"
+  | .promiseAddKeyDetached receiver publicKey nonce =>
+      s!"npromise.add.key.detached({receiver.toUTF8.size}:{receiver};{canonValues publicKey};" ++
+        s!"{Wasm.IR.valCanon extValCanon nonce})"
+  | .promiseAddKeyReturned receiver publicKey nonce =>
+      s!"npromise.add.key.returned({receiver.toUTF8.size}:{receiver};{canonValues publicKey};" ++
+        s!"{Wasm.IR.valCanon extValCanon nonce})"
+  | .promiseDeleteKeyDetached receiver publicKey =>
+      s!"npromise.delete.key.detached({receiver.toUTF8.size}:{receiver};{canonValues publicKey})"
+  | .promiseDeleteKeyReturned receiver publicKey =>
+      s!"npromise.delete.key.returned({receiver.toUTF8.size}:{receiver};{canonValues publicKey})"
+  | .promiseDeleteAccountDetached receiver beneficiary =>
+      s!"npromise.delete.account.detached({receiver.toUTF8.size}:{receiver};" ++
+        s!"{beneficiary.toUTF8.size}:{beneficiary})"
+  | .promiseDeleteAccountReturned receiver beneficiary =>
+      s!"npromise.delete.account.returned({receiver.toUTF8.size}:{receiver};" ++
+        s!"{beneficiary.toUTF8.size}:{beneficiary})"
   | .promiseFtOnTransferReturned receiver sender amountLo amountHi message =>
       s!"npromise.ft_on_transfer.returned({canonValues receiver};{canonValues sender};" ++
         s!"{Wasm.IR.valCanon extValCanon amountLo},{Wasm.IR.valCanon extValCanon amountHi};" ++
@@ -929,6 +991,32 @@ private def rewritePayload
   | .promiseTransferAccountReturned receiver amountLo amountHi =>
       return .promiseTransferAccountReturned (← receiver.mapM rewriteValue)
         (← rewriteValue amountLo) (← rewriteValue amountHi)
+  | .promiseCreateAccountDetached receiver => return .promiseCreateAccountDetached receiver
+  | .promiseCreateAccountReturned receiver => return .promiseCreateAccountReturned receiver
+  | .promiseDeployContractDetached codeCapacity receiver code =>
+      return .promiseDeployContractDetached codeCapacity receiver (← code.mapM rewriteValue)
+  | .promiseDeployContractReturned codeCapacity receiver code =>
+      return .promiseDeployContractReturned codeCapacity receiver (← code.mapM rewriteValue)
+  | .promiseStakeDetached receiver publicKey stakeLo stakeHi =>
+      return .promiseStakeDetached receiver (← publicKey.mapM rewriteValue)
+        (← rewriteValue stakeLo) (← rewriteValue stakeHi)
+  | .promiseStakeReturned receiver publicKey stakeLo stakeHi =>
+      return .promiseStakeReturned receiver (← publicKey.mapM rewriteValue)
+        (← rewriteValue stakeLo) (← rewriteValue stakeHi)
+  | .promiseAddKeyDetached receiver publicKey nonce =>
+      return .promiseAddKeyDetached receiver (← publicKey.mapM rewriteValue)
+        (← rewriteValue nonce)
+  | .promiseAddKeyReturned receiver publicKey nonce =>
+      return .promiseAddKeyReturned receiver (← publicKey.mapM rewriteValue)
+        (← rewriteValue nonce)
+  | .promiseDeleteKeyDetached receiver publicKey =>
+      return .promiseDeleteKeyDetached receiver (← publicKey.mapM rewriteValue)
+  | .promiseDeleteKeyReturned receiver publicKey =>
+      return .promiseDeleteKeyReturned receiver (← publicKey.mapM rewriteValue)
+  | .promiseDeleteAccountDetached receiver beneficiary =>
+      return .promiseDeleteAccountDetached receiver beneficiary
+  | .promiseDeleteAccountReturned receiver beneficiary =>
+      return .promiseDeleteAccountReturned receiver beneficiary
   | .promiseFtOnTransferReturned receiver sender amountLo amountHi message =>
       return .promiseFtOnTransferReturned (← receiver.mapM rewriteValue)
         (← sender.mapM rewriteValue) (← rewriteValue amountLo) (← rewriteValue amountHi)

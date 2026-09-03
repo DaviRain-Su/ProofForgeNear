@@ -256,6 +256,32 @@ def OpExt.mapValues (mapValue : Val → Val) : OpExt Val → OpExt Val
       | .ed25519Verify resultCapacity sig msg pk =>
           .near (.ed25519Verify resultCapacity (sig.map mapValue) (msg.map mapValue)
             (pk.map mapValue))
+      | .promiseCreateAccountDetached receiver =>
+          .near (.promiseCreateAccountDetached receiver)
+      | .promiseCreateAccountReturned receiver =>
+          .near (.promiseCreateAccountReturned receiver)
+      | .promiseDeployContractDetached codeCapacity receiver code =>
+          .near (.promiseDeployContractDetached codeCapacity receiver (code.map mapValue))
+      | .promiseDeployContractReturned codeCapacity receiver code =>
+          .near (.promiseDeployContractReturned codeCapacity receiver (code.map mapValue))
+      | .promiseStakeDetached receiver publicKey stakeLo stakeHi =>
+          .near (.promiseStakeDetached receiver (publicKey.map mapValue)
+            (mapValue stakeLo) (mapValue stakeHi))
+      | .promiseStakeReturned receiver publicKey stakeLo stakeHi =>
+          .near (.promiseStakeReturned receiver (publicKey.map mapValue)
+            (mapValue stakeLo) (mapValue stakeHi))
+      | .promiseAddKeyDetached receiver publicKey nonce =>
+          .near (.promiseAddKeyDetached receiver (publicKey.map mapValue) (mapValue nonce))
+      | .promiseAddKeyReturned receiver publicKey nonce =>
+          .near (.promiseAddKeyReturned receiver (publicKey.map mapValue) (mapValue nonce))
+      | .promiseDeleteKeyDetached receiver publicKey =>
+          .near (.promiseDeleteKeyDetached receiver (publicKey.map mapValue))
+      | .promiseDeleteKeyReturned receiver publicKey =>
+          .near (.promiseDeleteKeyReturned receiver (publicKey.map mapValue))
+      | .promiseDeleteAccountDetached receiver beneficiary =>
+          .near (.promiseDeleteAccountDetached receiver beneficiary)
+      | .promiseDeleteAccountReturned receiver beneficiary =>
+          .near (.promiseDeleteAccountReturned receiver beneficiary)
       | .reserved => .near .reserved
 
 def OpExt.values : OpExt Val → Array Val
@@ -381,6 +407,14 @@ def OpExt.values : OpExt Val → Array Val
       | .keccak512Hash _ _ input | .ripemd160Hash _ _ input => input
       | .ecrecover _ hash sig v malleability => hash ++ sig ++ #[v, malleability]
       | .ed25519Verify _ sig msg pk => sig ++ msg ++ pk
+      | .promiseCreateAccountDetached _ | .promiseCreateAccountReturned _ => #[]
+      | .promiseDeployContractDetached _ _ code | .promiseDeployContractReturned _ _ code => code
+      | .promiseStakeDetached _ publicKey stakeLo stakeHi
+      | .promiseStakeReturned _ publicKey stakeLo stakeHi => publicKey ++ #[stakeLo, stakeHi]
+      | .promiseAddKeyDetached _ publicKey nonce
+      | .promiseAddKeyReturned _ publicKey nonce => publicKey ++ #[nonce]
+      | .promiseDeleteKeyDetached _ publicKey | .promiseDeleteKeyReturned _ publicKey => publicKey
+      | .promiseDeleteAccountDetached _ _ | .promiseDeleteAccountReturned _ _ => #[]
       | .reserved => #[]
 
 def cfgDialect : Core.CFG.Dialect ValKind OpExt where
@@ -783,6 +817,31 @@ def OpExt.wellFormed : OpExt Val → Bool
             msg.size == (msg.size - 1) + 1 &&
             sig.all (·.wellFormed ValKind.arity) && pk.all (·.wellFormed ValKind.arity) &&
             msg.all (·.wellFormed ValKind.arity)
+      | .promiseCreateAccountDetached receiver
+      | .promiseCreateAccountReturned receiver =>
+          Wasm.Near.Codec.accountIdLiteralValid receiver
+      | .promiseDeployContractDetached codeCapacity receiver code
+      | .promiseDeployContractReturned codeCapacity receiver code =>
+          Wasm.Near.Codec.accountIdLiteralValid receiver &&
+            Wasm.Near.Codec.storageCapacityValid codeCapacity &&
+            code.size == codeCapacity + 1 && code.all (·.wellFormed ValKind.arity)
+      | .promiseStakeDetached receiver publicKey stakeLo stakeHi
+      | .promiseStakeReturned receiver publicKey stakeLo stakeHi =>
+          Wasm.Near.Codec.accountIdLiteralValid receiver && publicKey.size == 4 &&
+            publicKey.all (·.wellFormed ValKind.arity) &&
+            stakeLo.wellFormed ValKind.arity && stakeHi.wellFormed ValKind.arity
+      | .promiseAddKeyDetached receiver publicKey nonce
+      | .promiseAddKeyReturned receiver publicKey nonce =>
+          Wasm.Near.Codec.accountIdLiteralValid receiver && publicKey.size == 4 &&
+            publicKey.all (·.wellFormed ValKind.arity) && nonce.wellFormed ValKind.arity
+      | .promiseDeleteKeyDetached receiver publicKey
+      | .promiseDeleteKeyReturned receiver publicKey =>
+          Wasm.Near.Codec.accountIdLiteralValid receiver && publicKey.size == 4 &&
+            publicKey.all (·.wellFormed ValKind.arity)
+      | .promiseDeleteAccountDetached receiver beneficiary
+      | .promiseDeleteAccountReturned receiver beneficiary =>
+          Wasm.Near.Codec.accountIdLiteralValid receiver &&
+            Wasm.Near.Codec.accountIdLiteralValid beneficiary
       | .reserved => false
 
 def Op.wellFormed (op : Op) : Bool :=

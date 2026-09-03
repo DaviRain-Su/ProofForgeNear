@@ -95,6 +95,68 @@ success or failure. -/
     (receiver : Runtime.AccountId) (amount : Runtime.NearToken) : UInt64 :=
   Runtime.promiseTransferAccountReturned receiver amount.w0 amount.w1
 
+/-! Batch actions on static receivers. Each schedules one detached or returned receipt whose
+receiver (and beneficiary, for account deletion) must be a static AccountId literal accepted
+by the NEAR target. These are single-action batches; composing several actions into ONE batch
+handle is a later surface, not part of this slice. -/
+
+/-- Batch action: create the receiver account. -/
+@[pf_inline] def createAccountDetached (receiver : String) : UInt64 :=
+  Runtime.promiseCreateAccountDetached receiver
+
+/-- Batch action: create the receiver account and forward the receipt result. -/
+@[pf_inline] def createAccountReturned (receiver : String) : UInt64 :=
+  Runtime.promiseCreateAccountReturned receiver
+
+/-- Batch action: deploy the exact bounded Wasm code to the receiver. -/
+@[pf_inline] def deployContractDetached {codeCapacity : Nat}
+    (receiver : String) (code : BoundedBytes codeCapacity) : UInt64 :=
+  Runtime.promiseDeployContractDetached codeCapacity receiver code
+
+/-- Batch action: deploy code and forward the receipt result. -/
+@[pf_inline] def deployContractReturned {codeCapacity : Nat}
+    (receiver : String) (code : BoundedBytes codeCapacity) : UInt64 :=
+  Runtime.promiseDeployContractReturned codeCapacity receiver code
+
+/-- Batch action: stake the exact u128 amount with the ed25519 validator key. -/
+@[pf_inline] def stakeDetached
+    (receiver : String) (publicKey : Runtime.CryptoBytes32) (stake : Runtime.NearToken) : UInt64 :=
+  Runtime.promiseStakeDetached receiver publicKey stake.w0 stake.w1
+
+/-- Batch action: stake and forward the receipt result. -/
+@[pf_inline] def stakeReturned
+    (receiver : String) (publicKey : Runtime.CryptoBytes32) (stake : Runtime.NearToken) : UInt64 :=
+  Runtime.promiseStakeReturned receiver publicKey stake.w0 stake.w1
+
+/-- Batch action: add the ed25519 key as one full-access key at the given nonce. -/
+@[pf_inline] def addKeyDetached
+    (receiver : String) (publicKey : Runtime.CryptoBytes32) (nonce : UInt64) : UInt64 :=
+  Runtime.promiseAddKeyDetached receiver publicKey nonce
+
+/-- Batch action: add the full-access key and forward the receipt result. -/
+@[pf_inline] def addKeyReturned
+    (receiver : String) (publicKey : Runtime.CryptoBytes32) (nonce : UInt64) : UInt64 :=
+  Runtime.promiseAddKeyReturned receiver publicKey nonce
+
+/-- Batch action: delete the given access key. -/
+@[pf_inline] def deleteKeyDetached
+    (receiver : String) (publicKey : Runtime.CryptoBytes32) : UInt64 :=
+  Runtime.promiseDeleteKeyDetached receiver publicKey
+
+/-- Batch action: delete the access key and forward the receipt result. -/
+@[pf_inline] def deleteKeyReturned
+    (receiver : String) (publicKey : Runtime.CryptoBytes32) : UInt64 :=
+  Runtime.promiseDeleteKeyReturned receiver publicKey
+
+/-- Batch action: delete the receiver account, refunding its balance to the exact static
+beneficiary (the closed `refund_to` surface). -/
+@[pf_inline] def deleteAccountDetached (receiver beneficiary : String) : UInt64 :=
+  Runtime.promiseDeleteAccountDetached receiver beneficiary
+
+/-- Batch action: delete the account with the beneficiary and forward the receipt result. -/
+@[pf_inline] def deleteAccountReturned (receiver beneficiary : String) : UInt64 :=
+  Runtime.promiseDeleteAccountReturned receiver beneficiary
+
 /-- Schedule and return one specialized dynamic `ft_on_transfer` receipt. The target composes
 `{"sender_id":"...","amount":"...","msg":"..."}`, attaches zero NEAR, and uses the weighted
 function-call host action. This is not a generic dynamic JSON Promise API. -/

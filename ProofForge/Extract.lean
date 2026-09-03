@@ -941,6 +941,36 @@ def extractMethod (env : Environment) (kind : Core.IR.MethodKind) (n : Name) :
             | .ed25519Verify resultCapacity sig msg pk =>
                 .ed25519Verify resultCapacity (sig.map (flipVal fuel'))
                   (msg.map (flipVal fuel')) (pk.map (flipVal fuel'))
+            | .promiseCreateAccountDetached receiver =>
+                .promiseCreateAccountDetached receiver
+            | .promiseCreateAccountReturned receiver =>
+                .promiseCreateAccountReturned receiver
+            | .promiseDeployContractDetached codeCapacity receiver code =>
+                .promiseDeployContractDetached codeCapacity receiver
+                  (code.map (flipVal fuel'))
+            | .promiseDeployContractReturned codeCapacity receiver code =>
+                .promiseDeployContractReturned codeCapacity receiver
+                  (code.map (flipVal fuel'))
+            | .promiseStakeDetached receiver publicKey stakeLo stakeHi =>
+                .promiseStakeDetached receiver (publicKey.map (flipVal fuel'))
+                  (flipVal fuel' stakeLo) (flipVal fuel' stakeHi)
+            | .promiseStakeReturned receiver publicKey stakeLo stakeHi =>
+                .promiseStakeReturned receiver (publicKey.map (flipVal fuel'))
+                  (flipVal fuel' stakeLo) (flipVal fuel' stakeHi)
+            | .promiseAddKeyDetached receiver publicKey nonce =>
+                .promiseAddKeyDetached receiver (publicKey.map (flipVal fuel'))
+                  (flipVal fuel' nonce)
+            | .promiseAddKeyReturned receiver publicKey nonce =>
+                .promiseAddKeyReturned receiver (publicKey.map (flipVal fuel'))
+                  (flipVal fuel' nonce)
+            | .promiseDeleteKeyDetached receiver publicKey =>
+                .promiseDeleteKeyDetached receiver (publicKey.map (flipVal fuel'))
+            | .promiseDeleteKeyReturned receiver publicKey =>
+                .promiseDeleteKeyReturned receiver (publicKey.map (flipVal fuel'))
+            | .promiseDeleteAccountDetached receiver beneficiary =>
+                .promiseDeleteAccountDetached receiver beneficiary
+            | .promiseDeleteAccountReturned receiver beneficiary =>
+                .promiseDeleteAccountReturned receiver beneficiary
             | .reserved => .reserved))
       | .forAccum n v resultLocal => .forAccum n (flipVal fuel' v) resultLocal
       | .forBody n body => .forBody n (body.map (flipOp fuel'))

@@ -250,6 +250,52 @@ private def nearLeaf (kind : ProofForge.Wasm.Near.Ops.ValKind) : Val :=
     (receiver sender : Array Val) (amountLo amountHi : Val) (message : Array Val) : Op :=
   .ext (.near (.promiseFtOnTransferThenResolveReturned receiver sender amountLo amountHi message))
 
+@[match_pattern] def Op.nearPromiseCreateAccountDetached (receiver : String) : Op :=
+  .ext (.near (.promiseCreateAccountDetached receiver))
+
+@[match_pattern] def Op.nearPromiseCreateAccountReturned (receiver : String) : Op :=
+  .ext (.near (.promiseCreateAccountReturned receiver))
+
+@[match_pattern] def Op.nearPromiseDeployContractDetached
+    (codeCapacity : Nat) (receiver : String) (code : Array Val) : Op :=
+  .ext (.near (.promiseDeployContractDetached codeCapacity receiver code))
+
+@[match_pattern] def Op.nearPromiseDeployContractReturned
+    (codeCapacity : Nat) (receiver : String) (code : Array Val) : Op :=
+  .ext (.near (.promiseDeployContractReturned codeCapacity receiver code))
+
+@[match_pattern] def Op.nearPromiseStakeDetached
+    (receiver : String) (publicKey : Array Val) (stakeLo stakeHi : Val) : Op :=
+  .ext (.near (.promiseStakeDetached receiver publicKey stakeLo stakeHi))
+
+@[match_pattern] def Op.nearPromiseStakeReturned
+    (receiver : String) (publicKey : Array Val) (stakeLo stakeHi : Val) : Op :=
+  .ext (.near (.promiseStakeReturned receiver publicKey stakeLo stakeHi))
+
+@[match_pattern] def Op.nearPromiseAddKeyDetached
+    (receiver : String) (publicKey : Array Val) (nonce : Val) : Op :=
+  .ext (.near (.promiseAddKeyDetached receiver publicKey nonce))
+
+@[match_pattern] def Op.nearPromiseAddKeyReturned
+    (receiver : String) (publicKey : Array Val) (nonce : Val) : Op :=
+  .ext (.near (.promiseAddKeyReturned receiver publicKey nonce))
+
+@[match_pattern] def Op.nearPromiseDeleteKeyDetached
+    (receiver : String) (publicKey : Array Val) : Op :=
+  .ext (.near (.promiseDeleteKeyDetached receiver publicKey))
+
+@[match_pattern] def Op.nearPromiseDeleteKeyReturned
+    (receiver : String) (publicKey : Array Val) : Op :=
+  .ext (.near (.promiseDeleteKeyReturned receiver publicKey))
+
+@[match_pattern] def Op.nearPromiseDeleteAccountDetached
+    (receiver beneficiary : String) : Op :=
+  .ext (.near (.promiseDeleteAccountDetached receiver beneficiary))
+
+@[match_pattern] def Op.nearPromiseDeleteAccountReturned
+    (receiver beneficiary : String) : Op :=
+  .ext (.near (.promiseDeleteAccountReturned receiver beneficiary))
+
 @[match_pattern] def Op.nearPromiseFunctionCallThenReturned
     (receiver childMethod callbackMethod : String)
     (childArgsCapacity callbackArgsCapacity : Nat)

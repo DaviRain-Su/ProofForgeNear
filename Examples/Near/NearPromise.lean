@@ -662,4 +662,42 @@ def sendTooMuch (state : State) (value : UInt64) : Except Error (State × UInt64
     ({ w0 := 0xffffffffffffffff, w1 := 0xffffffffffffffff } : NearToken) callGas
   .ok ({ state with marker := value }, value)
 
+
+/-- Batch action: create the receiver subaccount (fails remotely if it exists). -/
+@[pf_entry]
+def batchCreateAccount (state : State) (value : UInt64) : Except Error (State × UInt64) :=
+  let _ := Promises.createAccountDetached receiver
+  .ok ({ state with marker := value }, value)
+
+/-- Batch action: deploy a tiny counter contract to a fresh account. -/
+@[pf_entry]
+def batchDeployContract (state : State) (value : UInt64) : Except Error (State × UInt64) :=
+  let code : ProofForge.Core.Value.BoundedBytes 8 :=
+    { length := 8, values := #v[0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00] }
+  let _ := Promises.deployContractDetached receiver code
+  .ok ({ state with marker := value }, value)
+
+/-- Batch action: stake zero with the sandbox account key (deterministic no-op stake). -/
+@[pf_entry]
+def batchStake (state : State) (value : UInt64) : Except Error (State × UInt64) :=
+  let key : ProofForge.Wasm.Near.Runtime.CryptoBytes32 :=
+    { w0 := 0, w1 := 0, w2 := 0, w3 := 0 }
+  let _ := Promises.stakeDetached receiver key ({ w0 := 0, w1 := 0 } : NearToken)
+  .ok ({ state with marker := value }, value)
+
+/-- Batch action: delete an unknown access key (fails remotely, receipt discarded). -/
+@[pf_entry]
+def batchDeleteKey (state : State) (value : UInt64) : Except Error (State × UInt64) :=
+  let key : ProofForge.Wasm.Near.Runtime.CryptoBytes32 :=
+    { w0 := 0x0102030405060708, w1 := 0, w2 := 0, w3 := 0 }
+  let _ := Promises.deleteKeyDetached receiver key
+  .ok ({ state with marker := value }, value)
+
+/-- Batch action: create + fund via two single-action batches (create then transfer). -/
+@[pf_entry]
+def batchCreateThenTransfer (state : State) (value : UInt64) : Except Error (State × UInt64) :=
+  let _ := Promises.createAccountDetached receiver
+  let _ := Promises.transferDetached receiver ({ w0 := 100, w1 := 0 } : NearToken)
+  .ok ({ state with marker := value }, value)
+
 end Examples.Near.NearPromise

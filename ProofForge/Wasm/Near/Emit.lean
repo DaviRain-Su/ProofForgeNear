@@ -175,6 +175,12 @@ private partial def logsOfOps (ops : Array (Op ValKind OpExt)) : Array String :=
       | .ext (.promiseTransferReturned _ _ _)
       | .ext (.promiseTransferAccountDetached _ _ _)
       | .ext (.promiseTransferAccountReturned _ _ _) => #[]
+      | .ext (.promiseCreateAccountDetached _) | .ext (.promiseCreateAccountReturned _) => #[]
+      | .ext (.promiseDeployContractDetached _ _ _) | .ext (.promiseDeployContractReturned _ _ _) => #[]
+      | .ext (.promiseStakeDetached _ _ _ _) | .ext (.promiseStakeReturned _ _ _ _) => #[]
+      | .ext (.promiseAddKeyDetached _ _ _) | .ext (.promiseAddKeyReturned _ _ _) => #[]
+      | .ext (.promiseDeleteKeyDetached _ _) | .ext (.promiseDeleteKeyReturned _ _) => #[]
+      | .ext (.promiseDeleteAccountDetached _ _) | .ext (.promiseDeleteAccountReturned _ _) => #[]
       | .ext (.promiseFunctionCallThenReturned _ _ _ _ _ _ _ _ _ _ _ _ _) => #[]
       | .ext (.promiseFunctionCallAndThenReturned _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => #[]
       | .ext (.promiseFunctionCallAnd3ThenReturned _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => #[]
@@ -328,6 +334,12 @@ private partial def opsReturnPromise (ops : Array (Op ValKind OpExt)) : Bool :=
     | .ext (.promiseFunctionCallReturned _ _ _ _ _ _ _) => true
     | .ext (.promiseTransferReturned _ _ _) => true
     | .ext (.promiseTransferAccountReturned _ _ _) => true
+    | .ext (.promiseCreateAccountReturned _) => true
+    | .ext (.promiseDeployContractReturned _ _ _) => true
+    | .ext (.promiseStakeReturned _ _ _ _) => true
+    | .ext (.promiseAddKeyReturned _ _ _) => true
+    | .ext (.promiseDeleteKeyReturned _ _) => true
+    | .ext (.promiseDeleteAccountReturned _ _) => true
     | .ext (.promiseFtOnTransferReturned _ _ _ _ _) => true
     | .ext (.promiseFtOnTransferThenResolveReturned _ _ _ _ _) => true
     | .ext (.promiseFunctionCallThenReturned _ _ _ _ _ _ _ _ _ _ _ _ _) => true
@@ -1935,6 +1947,161 @@ private def stagePromiseAccountTransfer (st : EState) (receiver : Array (Val Val
   ]
   return { lines, promiseLocal, st := st' }
 
+/-- Stage one single-action batch on a static receiver: create-account. -/
+private def stagePromiseCreateAccount (p : Program ValKind OpExt) (st : EState)
+    (receiver : String) (level : Nat) : Except String StagedPromiseCall := do
+  let (receiverOff, receiverLen) ← promiseLiteralOf p receiver
+  let promiseLocal := localOfTemp st.fresh
+  let st' := { st with fresh := st.fresh + 1 }
+  let lines := #[
+    indent level ("(local.set " ++ promiseLocal ++
+      " (call $pf_promise_batch_create (i64.const " ++ toString receiverLen ++
+      ") (i64.const " ++ toString receiverOff ++ ")))"),
+    indent level ("(call $pf_promise_batch_action_create_account (local.get " ++
+      promiseLocal ++ "))")
+  ]
+  return { lines, promiseLocal, st := st' }
+
+/-- Stage one single-action batch: deploy the exact bounded Wasm code. -/
+private def stagePromiseDeployContract (p : Program ValKind OpExt) (st : EState)
+    (codeCapacity : Nat) (receiver : String) (code : Array (Val ValKind))
+    (level : Nat) : Except String StagedPromiseCall := do
+  let (receiverOff, receiverLen) ← promiseLiteralOf p receiver
+  let staged ← stageStorageFrame st codeCapacity code level
+  let promiseLocal := localOfTemp staged.st.fresh
+  let st' := { staged.st with fresh := staged.st.fresh + 1 }
+  let lines := staged.lines ++ #[
+    indent level ("(local.set " ++ promiseLocal ++
+      " (call $pf_promise_batch_create (i64.const " ++ toString receiverLen ++
+      ") (i64.const " ++ toString receiverOff ++ ")))"),
+    indent level ("(call $pf_promise_batch_action_deploy_contract (local.get " ++
+      promiseLocal ++ ") " ++ staged.length ++ " " ++ staged.pointer ++ ")")
+  ]
+  return { lines, promiseLocal, st := st' }
+
+/-- Stage one single-action batch: stake the exact u128 amount with the ed25519 key.
+The host wire shape is the 16-byte LE amount followed by the 33-byte key (curve tag 0
++ 32 key bytes); the key is written byte-exact from the four carrier windows. -/
+private def stagePromiseStake (p : Program ValKind OpExt) (st : EState)
+    (receiver : String) (publicKey : Array (Val ValKind)) (stakeLo stakeHi : Val ValKind)
+    (level : Nat) : Except String StagedPromiseCall := do
+  let (receiverOff, receiverLen) ← promiseLiteralOf p receiver
+  let stakeLo' ← renderVal st stakeLo
+  let stakeHi' ← renderVal st stakeHi
+  let paramsPtrLocal := localOfTemp st.fresh
+  let promiseLocal := localOfTemp (st.fresh + 1)
+  let st' := { st with fresh := st.fresh + 2 }
+  let mut lines := #[
+    indent level ("(local.set " ++ paramsPtrLocal ++
+      " (i64.extend_i32_u (call $pf_arena_alloc (i64.const 49) (i64.const 8))))"),
+    indent level ("(i64.store (i32.wrap_i64 (local.get " ++ paramsPtrLocal ++ ")) " ++
+      stakeLo' ++ ")"),
+    indent level ("(i64.store (i32.add (i32.wrap_i64 (local.get " ++ paramsPtrLocal ++
+      ")) (i32.const 8)) " ++ stakeHi' ++ ")"),
+    indent level ("(i64.store8 (i32.add (i32.wrap_i64 (local.get " ++ paramsPtrLocal ++
+      ")) (i32.const 16)) (i64.const 0))")
+  ]
+  for index in [0:32] do
+    let word ← renderVal st publicKey[index / 8]!
+    let byte := "(i64.and (i64.shr_u " ++ word ++ " (i64.const " ++
+      toString ((index % 8) * 8) ++ ")) (i64.const 255))"
+    lines := lines ++ #[indent level ("(i64.store8 (i32.add (i32.wrap_i64 (local.get " ++
+      paramsPtrLocal ++ ")) (i32.const " ++ toString (17 + index) ++ ")) " ++ byte ++ ")")]
+  lines := lines ++ #[
+    indent level ("(local.set " ++ promiseLocal ++
+      " (call $pf_promise_batch_create (i64.const " ++ toString receiverLen ++
+      ") (i64.const " ++ toString receiverOff ++ ")))"),
+    indent level ("(call $pf_promise_batch_action_stake (local.get " ++ promiseLocal ++
+      ") (local.get " ++ paramsPtrLocal ++ ") (i64.const 33) " ++
+      "(i64.add (local.get " ++ paramsPtrLocal ++ ") (i64.const 16)))")
+  ]
+  return { lines, promiseLocal, st := st' }
+
+/-- Stage one single-action batch: add the ed25519 key as a full-access key. The host wire
+shape is the 33-byte public key (curve tag 0 + 32 key bytes) followed by the Borsh AccessKey:
+`u64_le(nonce)` plus the FullAccess discriminant byte `1`. -/
+private def stagePromiseAddKey (p : Program ValKind OpExt) (st : EState)
+    (receiver : String) (publicKey : Array (Val ValKind)) (nonce : Val ValKind)
+    (level : Nat) : Except String StagedPromiseCall := do
+  let (receiverOff, receiverLen) ← promiseLiteralOf p receiver
+  let nonce' ← renderVal st nonce
+  let paramsPtrLocal := localOfTemp st.fresh
+  let promiseLocal := localOfTemp (st.fresh + 1)
+  let st' := { st with fresh := st.fresh + 2 }
+  let mut lines := #[
+    indent level ("(local.set " ++ paramsPtrLocal ++
+      " (i64.extend_i32_u (call $pf_arena_alloc (i64.const 42) (i64.const 8))))"),
+    indent level ("(i64.store8 (i32.add (i32.wrap_i64 (local.get " ++ paramsPtrLocal ++
+      ")) (i32.const 0)) (i64.const 0))")
+  ]
+  for index in [0:32] do
+    let word ← renderVal st publicKey[index / 8]!
+    let byte := "(i64.and (i64.shr_u " ++ word ++ " (i64.const " ++
+      toString ((index % 8) * 8) ++ ")) (i64.const 255))"
+    lines := lines ++ #[indent level ("(i64.store8 (i32.add (i32.wrap_i64 (local.get " ++
+      paramsPtrLocal ++ ")) (i32.const " ++ toString (1 + index) ++ ")) " ++ byte ++ ")")]
+  lines := lines ++ #[
+    indent level ("(i64.store (i32.add (i32.wrap_i64 (local.get " ++ paramsPtrLocal ++
+      ")) (i32.const 33)) " ++ nonce' ++ ")"),
+    indent level ("(i64.store8 (i32.add (i32.wrap_i64 (local.get " ++ paramsPtrLocal ++
+      ")) (i32.const 41)) (i64.const 1))"),
+    indent level ("(local.set " ++ promiseLocal ++
+      " (call $pf_promise_batch_create (i64.const " ++ toString receiverLen ++
+      ") (i64.const " ++ toString receiverOff ++ ")))"),
+    indent level ("(call $pf_promise_batch_action_add_key_with_full_access_key (local.get " ++
+      promiseLocal ++ ") (local.get " ++ paramsPtrLocal ++ "))")
+  ]
+  return { lines, promiseLocal, st := st' }
+
+/-- Stage one single-action batch: delete the given access key. The host wire shape is the
+33-byte public key (curve tag 0 + 32 key bytes). -/
+private def stagePromiseDeleteKey (p : Program ValKind OpExt) (st : EState)
+    (receiver : String) (publicKey : Array (Val ValKind))
+    (level : Nat) : Except String StagedPromiseCall := do
+  let (receiverOff, receiverLen) ← promiseLiteralOf p receiver
+  let paramsPtrLocal := localOfTemp st.fresh
+  let promiseLocal := localOfTemp (st.fresh + 1)
+  let st' := { st with fresh := st.fresh + 2 }
+  let mut lines := #[
+    indent level ("(local.set " ++ paramsPtrLocal ++
+      " (i64.extend_i32_u (call $pf_arena_alloc (i64.const 33) (i64.const 8))))"),
+    indent level ("(i64.store8 (i32.add (i32.wrap_i64 (local.get " ++ paramsPtrLocal ++
+      ")) (i32.const 0)) (i64.const 0))")
+  ]
+  for index in [0:32] do
+    let word ← renderVal st publicKey[index / 8]!
+    let byte := "(i64.and (i64.shr_u " ++ word ++ " (i64.const " ++
+      toString ((index % 8) * 8) ++ ")) (i64.const 255))"
+    lines := lines ++ #[indent level ("(i64.store8 (i32.add (i32.wrap_i64 (local.get " ++
+      paramsPtrLocal ++ ")) (i32.const " ++ toString (1 + index) ++ ")) " ++ byte ++ ")")]
+  lines := lines ++ #[
+    indent level ("(local.set " ++ promiseLocal ++
+      " (call $pf_promise_batch_create (i64.const " ++ toString receiverLen ++
+      ") (i64.const " ++ toString receiverOff ++ ")))"),
+    indent level ("(call $pf_promise_batch_action_delete_key (local.get " ++ promiseLocal ++
+      ") (i64.const 33) (local.get " ++ paramsPtrLocal ++ "))")
+  ]
+  return { lines, promiseLocal, st := st' }
+
+/-- Stage one single-action batch: delete the receiver account and refund its balance to the
+exact static beneficiary (the closed `refund_to` surface). The host wire shape is the
+length-prefixed beneficiary UTF-8 bytes. -/
+private def stagePromiseDeleteAccount (p : Program ValKind OpExt) (st : EState)
+    (receiver beneficiary : String) (level : Nat) : Except String StagedPromiseCall := do
+  let (receiverOff, receiverLen) ← promiseLiteralOf p receiver
+  let (beneficiaryOff, beneficiaryLen) ← promiseLiteralOf p beneficiary
+  let promiseLocal := localOfTemp st.fresh
+  let st' := { st with fresh := st.fresh + 1 }
+  let lines := #[
+    indent level ("(local.set " ++ promiseLocal ++
+      " (call $pf_promise_batch_create (i64.const " ++ toString receiverLen ++
+      ") (i64.const " ++ toString receiverOff ++ ")))"),
+    indent level ("(call $pf_promise_batch_action_delete_account (local.get " ++
+      promiseLocal ++ ") (i64.const " ++ toString beneficiaryLen ++ ") " ++
+      "(i64.const " ++ toString beneficiaryOff ++ "))")
+  ]
+  return { lines, promiseLocal, st := st' }
+
 /-- Compose the exact near-contract-standards receiver payload and schedule one weighted dynamic
 `ft_on_transfer` call. The 844-byte payload allocation is the exact target worst case for two
 64-byte escaped frames, 39 decimal digits, and 37 structural bytes. -/
@@ -2456,6 +2623,120 @@ private partial def emitRegion (p : Program ValKind OpExt)
           lines := staged.lines ++ region.lines
           st := region.st
           terminal := region.terminal }
+    | .ext (.promiseCreateAccountDetached receiver) =>
+        if view then throw "extract/unsupported: near view cannot create a promise"
+        let staged ← stagePromiseCreateAccount p st receiver level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail staged.st
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
+    | .ext (.promiseCreateAccountReturned receiver) =>
+        if view then throw "extract/unsupported: near view cannot create a promise"
+        if st.pendingPromiseReturn.isSome then
+          throw "extract/unsupported: near method cannot return more than one promise"
+        let staged ← stagePromiseCreateAccount p st receiver level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail
+          { staged.st with pendingPromiseReturn := some staged.promiseLocal }
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
+    | .ext (.promiseDeployContractDetached codeCapacity receiver code) =>
+        if view then throw "extract/unsupported: near view cannot create a promise"
+        let staged ← stagePromiseDeployContract p st codeCapacity receiver code level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail staged.st
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
+    | .ext (.promiseDeployContractReturned codeCapacity receiver code) =>
+        if view then throw "extract/unsupported: near view cannot create a promise"
+        if st.pendingPromiseReturn.isSome then
+          throw "extract/unsupported: near method cannot return more than one promise"
+        let staged ← stagePromiseDeployContract p st codeCapacity receiver code level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail
+          { staged.st with pendingPromiseReturn := some staged.promiseLocal }
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
+    | .ext (.promiseStakeDetached receiver publicKey stakeLo stakeHi) =>
+        if view then throw "extract/unsupported: near view cannot create a promise"
+        let staged ← stagePromiseStake p st receiver publicKey stakeLo stakeHi level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail staged.st
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
+    | .ext (.promiseStakeReturned receiver publicKey stakeLo stakeHi) =>
+        if view then throw "extract/unsupported: near view cannot create a promise"
+        if st.pendingPromiseReturn.isSome then
+          throw "extract/unsupported: near method cannot return more than one promise"
+        let staged ← stagePromiseStake p st receiver publicKey stakeLo stakeHi level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail
+          { staged.st with pendingPromiseReturn := some staged.promiseLocal }
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
+    | .ext (.promiseAddKeyDetached receiver publicKey nonce) =>
+        if view then throw "extract/unsupported: near view cannot create a promise"
+        let staged ← stagePromiseAddKey p st receiver publicKey nonce level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail staged.st
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
+    | .ext (.promiseAddKeyReturned receiver publicKey nonce) =>
+        if view then throw "extract/unsupported: near view cannot create a promise"
+        if st.pendingPromiseReturn.isSome then
+          throw "extract/unsupported: near method cannot return more than one promise"
+        let staged ← stagePromiseAddKey p st receiver publicKey nonce level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail
+          { staged.st with pendingPromiseReturn := some staged.promiseLocal }
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
+    | .ext (.promiseDeleteKeyDetached receiver publicKey) =>
+        if view then throw "extract/unsupported: near view cannot create a promise"
+        let staged ← stagePromiseDeleteKey p st receiver publicKey level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail staged.st
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
+    | .ext (.promiseDeleteKeyReturned receiver publicKey) =>
+        if view then throw "extract/unsupported: near view cannot create a promise"
+        if st.pendingPromiseReturn.isSome then
+          throw "extract/unsupported: near method cannot return more than one promise"
+        let staged ← stagePromiseDeleteKey p st receiver publicKey level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail
+          { staged.st with pendingPromiseReturn := some staged.promiseLocal }
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
+    | .ext (.promiseDeleteAccountDetached receiver beneficiary) =>
+        if view then throw "extract/unsupported: near view cannot create a promise"
+        let staged ← stagePromiseDeleteAccount p st receiver beneficiary level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail staged.st
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
+    | .ext (.promiseDeleteAccountReturned receiver beneficiary) =>
+        if view then throw "extract/unsupported: near view cannot create a promise"
+        if st.pendingPromiseReturn.isSome then
+          throw "extract/unsupported: near method cannot return more than one promise"
+        let staged ← stagePromiseDeleteAccount p st receiver beneficiary level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail
+          { staged.st with pendingPromiseReturn := some staged.promiseLocal }
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
     | .ext (.promiseFtOnTransferReturned receiver sender amountLo amountHi message) =>
         if view then throw "extract/unsupported: near view cannot create a promise"
         if st.pendingPromiseReturn.isSome then
@@ -2966,6 +3247,18 @@ private partial def usesKind (kind : ValKind) : Op ValKind OpExt → Bool
       | .promiseTransferAccountDetached receiver amountLo amountHi
       | .promiseTransferAccountReturned receiver amountLo amountHi =>
           receiver.any valHas || valHas amountLo || valHas amountHi
+      | .promiseCreateAccountDetached _ | .promiseCreateAccountReturned _ => false
+      | .promiseDeployContractDetached _ _ code
+      | .promiseDeployContractReturned _ _ code => code.any valHas
+      | .promiseStakeDetached _ publicKey stakeLo stakeHi
+      | .promiseStakeReturned _ publicKey stakeLo stakeHi =>
+          publicKey.any valHas || valHas stakeLo || valHas stakeHi
+      | .promiseAddKeyDetached _ publicKey nonce
+      | .promiseAddKeyReturned _ publicKey nonce =>
+          publicKey.any valHas || valHas nonce
+      | .promiseDeleteKeyDetached _ publicKey
+      | .promiseDeleteKeyReturned _ publicKey => publicKey.any valHas
+      | .promiseDeleteAccountDetached _ _ | .promiseDeleteAccountReturned _ _ => false
       | .promiseFtOnTransferReturned receiver sender amountLo amountHi message =>
           receiver.any valHas || sender.any valHas || valHas amountLo || valHas amountHi ||
             message.any valHas
@@ -3356,6 +3649,18 @@ private partial def opUsesArena : Op ValKind OpExt → Bool
   | .ext (.promiseFtOnTransferReturned _ _ _ _ _) => true
   | .ext (.promiseFtOnTransferThenResolveReturned _ _ _ _ _) => true
   | .ext (.logUtf8 _) | .ext .reserved => false
+  | .ext (.promiseCreateAccountDetached _)
+  | .ext (.promiseCreateAccountReturned _)
+  | .ext (.promiseDeployContractDetached _ _ _)
+  | .ext (.promiseDeployContractReturned _ _ _)
+  | .ext (.promiseStakeDetached _ _ _ _)
+  | .ext (.promiseStakeReturned _ _ _ _)
+  | .ext (.promiseAddKeyDetached _ _ _)
+  | .ext (.promiseAddKeyReturned _ _ _)
+  | .ext (.promiseDeleteKeyDetached _ _)
+  | .ext (.promiseDeleteKeyReturned _ _)
+  | .ext (.promiseDeleteAccountDetached _ _)
+  | .ext (.promiseDeleteAccountReturned _ _) => true
   | .letLocal _ value | .setLocal _ value | .forAccum _ value _
   | .storeField _ value | .okState value | .returnU64 value | .returnState value =>
       valUsesArena value
@@ -6054,6 +6359,30 @@ def emit (p : IR.Program) : Except String String := do
   if programTransfersPromise p then
     lines := lines.push
       "  (import \"env\" \"promise_batch_action_transfer\" (func $pf_promise_batch_action_transfer (param i64 i64)))"
+  if programHasOpExt (fun | .promiseCreateAccountDetached _ => true | _ => false) p ||
+      programHasOpExt (fun | .promiseCreateAccountReturned _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"promise_batch_action_create_account\" (func $pf_promise_batch_action_create_account (param i64)))"
+  if programHasOpExt (fun | .promiseDeployContractDetached _ _ _ => true | _ => false) p ||
+      programHasOpExt (fun | .promiseDeployContractReturned _ _ _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"promise_batch_action_deploy_contract\" (func $pf_promise_batch_action_deploy_contract (param i64 i64 i64)))"
+  if programHasOpExt (fun | .promiseStakeDetached _ _ _ _ => true | _ => false) p ||
+      programHasOpExt (fun | .promiseStakeReturned _ _ _ _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"promise_batch_action_stake\" (func $pf_promise_batch_action_stake (param i64 i64 i64 i64)))"
+  if programHasOpExt (fun | .promiseAddKeyDetached _ _ _ => true | _ => false) p ||
+      programHasOpExt (fun | .promiseAddKeyReturned _ _ _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"promise_batch_action_add_key_with_full_access_key\" (func $pf_promise_batch_action_add_key_with_full_access_key (param i64 i64)))"
+  if programHasOpExt (fun | .promiseDeleteKeyDetached _ _ => true | _ => false) p ||
+      programHasOpExt (fun | .promiseDeleteKeyReturned _ _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"promise_batch_action_delete_key\" (func $pf_promise_batch_action_delete_key (param i64 i64 i64)))"
+  if programHasOpExt (fun | .promiseDeleteAccountDetached _ _ => true | _ => false) p ||
+      programHasOpExt (fun | .promiseDeleteAccountReturned _ _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"promise_batch_action_delete_account\" (func $pf_promise_batch_action_delete_account (param i64 i64 i64)))"
   if programChainsPromise p then
     lines := lines.push
       "  (import \"env\" \"promise_batch_then\" (func $pf_promise_batch_then (param i64 i64 i64) (result i64)))"

@@ -579,6 +579,98 @@ eventual result. -/
   let _ := amountHi
   0
 
+/-- Batch action: create the receiver account. Detached — the receipt result is discarded.
+`receiver` must be a static AccountId literal; view-forbidden. -/
+@[irreducible] def promiseCreateAccountDetached (receiver : String) : UInt64 :=
+  let _ := receiver
+  0
+
+/-- Batch action: create the receiver account and forward its eventual receipt result. -/
+@[irreducible] def promiseCreateAccountReturned (receiver : String) : UInt64 :=
+  let _ := receiver
+  0
+
+/-- Batch action: deploy the exact bounded Wasm code to the receiver. Detached. -/
+@[irreducible] def promiseDeployContractDetached (codeCapacity : Nat) (receiver : String)
+    (code : ProofForge.Core.Value.BoundedBytes codeCapacity) : UInt64 :=
+  let _ := codeCapacity
+  let _ := receiver
+  let _ := code
+  0
+
+/-- Batch action: deploy the exact bounded Wasm code and forward the receipt result. -/
+@[irreducible] def promiseDeployContractReturned (codeCapacity : Nat) (receiver : String)
+    (code : ProofForge.Core.Value.BoundedBytes codeCapacity) : UInt64 :=
+  let _ := codeCapacity
+  let _ := receiver
+  let _ := code
+  0
+
+/-- Batch action: stake the exact u128 amount with the given ed25519 validator key
+(the 32-byte key carries no curve tag byte). Detached. -/
+@[irreducible] def promiseStakeDetached (receiver : String) (publicKey : CryptoBytes32)
+    (stakeLo stakeHi : UInt64) : UInt64 :=
+  let _ := receiver
+  let _ := publicKey
+  let _ := stakeLo
+  let _ := stakeHi
+  0
+
+/-- Batch action: stake and forward the receipt result. -/
+@[irreducible] def promiseStakeReturned (receiver : String) (publicKey : CryptoBytes32)
+    (stakeLo stakeHi : UInt64) : UInt64 :=
+  let _ := receiver
+  let _ := publicKey
+  let _ := stakeLo
+  let _ := stakeHi
+  0
+
+/-- Batch action: add the given ed25519 key to the receiver with a full-access permission.
+Detached. -/
+@[irreducible] def promiseAddKeyDetached (receiver : String) (publicKey : CryptoBytes32)
+    (nonce : UInt64) : UInt64 :=
+  let _ := receiver
+  let _ := publicKey
+  let _ := nonce
+  0
+
+/-- Batch action: add the given full-access key and forward the receipt result. -/
+@[irreducible] def promiseAddKeyReturned (receiver : String) (publicKey : CryptoBytes32)
+    (nonce : UInt64) : UInt64 :=
+  let _ := receiver
+  let _ := publicKey
+  let _ := nonce
+  0
+
+/-- Batch action: delete the given access key from the receiver. Detached. -/
+@[irreducible] def promiseDeleteKeyDetached (receiver : String)
+    (publicKey : CryptoBytes32) : UInt64 :=
+  let _ := receiver
+  let _ := publicKey
+  0
+
+/-- Batch action: delete the given access key and forward the receipt result. -/
+@[irreducible] def promiseDeleteKeyReturned (receiver : String)
+    (publicKey : CryptoBytes32) : UInt64 :=
+  let _ := receiver
+  let _ := publicKey
+  0
+
+/-- Batch action: delete the receiver account, refunding its balance to the static beneficiary.
+Detached. This is ProofForge's closed `refund_to` surface: the beneficiary is an exact
+AccountId literal on the same batch, not a runtime-computed target. -/
+@[irreducible] def promiseDeleteAccountDetached (receiver beneficiary : String) : UInt64 :=
+  let _ := receiver
+  let _ := beneficiary
+  0
+
+/-- Batch action: delete the receiver account with the given beneficiary and forward the
+receipt result. -/
+@[irreducible] def promiseDeleteAccountReturned (receiver beneficiary : String) : UInt64 :=
+  let _ := receiver
+  let _ := beneficiary
+  0
+
 /-- Schedule the specialized weighted `ft_on_transfer` child call used by the future
 `ft_transfer_call` path. The receiver and sender are complete dynamic AccountIds; the target owns
 the exact JSON payload, fixed zero deposit, method name, and weighted host action. -/

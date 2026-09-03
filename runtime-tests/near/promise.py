@@ -566,6 +566,63 @@ def main() -> None:
     if client.view_u64_on(RECEIVER, "get") != 456:
         raise AssertionError("synchronous deposit failure emitted an outgoing receipt")
     print("near-promise: insufficient balance failed synchronously before commit")
+
+    # --- batch actions: stake / delete_key / create_account / deploy / delete_account ---
+    # batchStake schedules a stake action with a compile-time all-zero ed25519 key. nearcore
+    # validates staking keys at receipt creation and rejects the unsuitable key synchronously:
+    # the whole transaction fails and caller state rolls back (fail-closed stake surface).
+    try:
+        client.call("batchStake", NearClient.encode_u64_le(11))
+    except NearRpcError:
+        print("near-promise: batch stake with unsuitable key rejected synchronously ok")
+    else:
+        raise AssertionError("all-zero stake key must fail action validation")
+    if client.view_u64("get") != 94:
+        raise AssertionError("stake validation failure did not roll back caller state")
+    # batchDeleteKey schedules a delete of a compile-time unknown key (0x0102..08). The
+    # delete_key action validates at receipt creation; the delete then fails remotely on the
+    # absent key and the detached result is discarded. The caller's marker commits; the
+    # receiver is untouched.
+    client.call("batchDeleteKey", NearClient.encode_u64_le(12))
+    if client.view_u64("get") != 12:
+        raise AssertionError("batchDeleteKey did not commit its marker")
+    if client.view_u64_on(RECEIVER, "get") != 456:
+        raise AssertionError("failed remote delete_key changed receiver state")
+    print("near-promise: batch delete_key unknown-key receipt discarded ok")
+
+    # batchCreateAccount against the existing receiver must fail remotely and be discarded.
+    client.call("batchCreateAccount", NearClient.encode_u64_le(13))
+    if client.view_u64("get") != 94 or client.view_u64_on(RECEIVER, "get") != 456:
+        raise AssertionError("failed create_account receipt changed contract state")
+    print("near-promise: batch create_account on existing account discarded ok")
+
+    # batchDeployContract schedules a deploy of an 8-byte wasm header to the receiver; the
+    # receiver already has code, so the redeploy receipt succeeds and replaces it with a
+    # contract that has no exported methods. A view must then fail.
+    client.call("batchDeployContract", NearClient.encode_u64_le(14))
+    try:
+        client.view_u64_on(RECEIVER, "get")
+    except NearRpcError:
+        print("near-promise: batch deploy_contract replaced receiver code ok")
+    else:
+        raise AssertionError("batch deploy_contract did not replace receiver code")
+
+    # batchDeleteAccountRefundToCaller deletes the receiver, refunding its balance to
+    # test.near (the exact closed refund_to shape). The caller must survive and be credited.
+    caller_balance_before = client.view_account_balance(client.account_id)
+    client.call("batchDeleteAccountRefundToCaller", NearClient.encode_u64_le(15))
+    caller_balance_after = client.view_account_balance(client.account_id)
+    if caller_balance_after <= caller_balance_before:
+        raise AssertionError(
+            f"delete_account refund_to did not credit the beneficiary: "
+            f"{caller_balance_before} -> {caller_balance_after}"
+        )
+    try:
+        client.view_account_balance(RECEIVER)
+    except NearRpcError:
+        print("near-promise: delete_account removed receiver and refunded caller ok")
+    else:
+        raise AssertionError("delete_account did not remove the receiver account")
     print("suite NearPromise: PASS")
 
 

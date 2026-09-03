@@ -1353,4 +1353,17 @@ def selfAccountId : AccountId :=
     w6 := currentAccountIdW6
     w7 := currentAccountIdW7 }
 
+/-- Compiler-owned signed 64-bit integer carrier, stored as the two's-complement `UInt64`
+bit pattern. JSON inputs bind a canonical unquoted integer in `[-2^63, 2^63 - 1]`; the
+parser rejects `+`, leading zeros (except `"0"`), float/boolean forms, and out-of-range
+magnitudes. Source arithmetic stays caller-owned; the carrier only fixes the wire shape. -/
+@[pf_boundary] structure NearI64 where
+  value : UInt64
+  deriving Repr, DecidableEq, Inhabited, BEq
+
+/-- Compiler-owned gas scalar. On-chain gas is a plain `UInt64`; the alias exists so
+call-site types stay honest about units. Checked add/sub with overflow predicates live
+in `Near.Sdk.NearGas`. -/
+abbrev NearGas := UInt64
+
 end ProofForge.Wasm.Near.Runtime

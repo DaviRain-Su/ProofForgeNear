@@ -157,6 +157,11 @@ def maxJsonStorageWithdrawWhitespace : Nat := 32
 def maxJsonStorageWithdrawInputBytes : Nat :=
   13 + 39 * 6 + maxJsonStorageWithdrawWhitespace
 
+/-- Canonical unquoted JSON integer for `i64`: optional `-`, digits `0..19`,
+two's-complement range `[-2^63, 2^63 - 1]`, structural whitespace bounded at 32 bytes. -/
+def maxJsonI64Whitespace : Nat := 32
+def maxJsonI64InputBytes : Nat := 4 + 20 * 6 + maxJsonI64Whitespace
+
 def accountIdSchema : Core.Codec.Schema :=
   .record "ProofForge.Wasm.Near.Runtime.AccountId" #[
     ("length", .scalar .uint64),
@@ -211,6 +216,10 @@ def storageWithdrawArgsSchema : Core.Codec.Schema :=
   .record "ProofForge.Wasm.Near.Runtime.StorageWithdrawArgs" #[
     ("amountPresent", .scalar .uint64), ("amount", .scalar .uint128)]
 
+def nearI64Schema : Core.Codec.Schema :=
+  .record "ProofForge.Wasm.Near.Runtime.NearI64" #[
+    ("value", .scalar .uint64)]
+
 def jsonBooleanResultSchema : Core.Codec.Schema :=
   .record "ProofForge.Wasm.Near.Runtime.JsonBooleanResult" #[
     ("value", .scalar .uint64)]
@@ -256,6 +265,7 @@ inductive InputPlan where
   | jsonStorageDepositArgs
   | jsonStorageUnregisterArgs
   | jsonStorageWithdrawArgs
+  | jsonI64
   deriving Repr, BEq, Inhabited
 
 def InputPlan.localCount : InputPlan → Nat
@@ -272,6 +282,7 @@ def InputPlan.localCount : InputPlan → Nat
   | .jsonStorageDepositArgs => 11
   | .jsonStorageUnregisterArgs => 1
   | .jsonStorageWithdrawArgs => 3
+  | .jsonI64 => 1
 
 def InputPlan.canonical : InputPlan → String
   | .borsh plan => plan.canonical
@@ -309,6 +320,9 @@ def InputPlan.canonical : InputPlan → String
   | .jsonStorageWithdrawArgs =>
       s!"near-json-storage-withdraw-args-bounded-v1(max-wire={maxJsonStorageWithdrawInputBytes}," ++
         s!"ws={maxJsonStorageWithdrawWhitespace},digits=1..39,keys=raw,unknown=reject)"
+  | .jsonI64 =>
+      s!"near-json-i64-number-canonical-v1(max-wire={maxJsonI64InputBytes}," ++
+        s!"ws={maxJsonI64Whitespace},range=[-2^63,2^63-1],unknown=reject)"
 
 def targetInputPlan (schema : Core.Codec.Schema) : Except String InputPlan := do
   if schema == accountIdSchema then return .jsonAccountId
@@ -322,6 +336,7 @@ def targetInputPlan (schema : Core.Codec.Schema) : Except String InputPlan := do
   if schema == storageDepositArgsSchema then return .jsonStorageDepositArgs
   if schema == storageUnregisterArgsSchema then return .jsonStorageUnregisterArgs
   if schema == storageWithdrawArgsSchema then return .jsonStorageWithdrawArgs
+  if schema == nearI64Schema then return .jsonI64
   match schema with
   | .boundedBytes capacity => .borsh <$> inputPlan (.boundedBytes capacity)
   | .boundedString capacity => .borsh <$> inputPlan (.boundedString capacity)

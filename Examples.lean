@@ -49,3 +49,4 @@ import Examples.Near.NearChain
 import Examples.Near.NearSigner
 import Examples.Near.NearCrypto
 import Examples.Near.NearLazy
+import Examples.Near.NearJsonI64Input

@@ -402,4 +402,21 @@ abbrev Ed25519 := Nat
 
 end Hash
 
+namespace NearGas
+
+/-- Checked `gas + delta`; fails closed on overflow. -/
+@[pf_inline] def add (base delta : Runtime.NearGas) : Option Runtime.NearGas :=
+  let sum := base + delta
+  if sum ≥ base then some sum else none
+
+/-- Checked `gas - delta`; fails closed when `delta` exceeds `base`. -/
+@[pf_inline] def sub (base delta : Runtime.NearGas) : Option Runtime.NearGas :=
+  if delta ≤ base then some (base - delta) else none
+
+/-- Whether `base + delta` stays inside the `UInt64` gas range. -/
+@[pf_inline] def canAdd (base delta : Runtime.NearGas) : Bool :=
+  base + delta ≥ base
+
+end NearGas
+
 end ProofForge.Wasm.Near.Sdk

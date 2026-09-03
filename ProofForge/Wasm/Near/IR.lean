@@ -1426,6 +1426,19 @@ private partial def rewriteJsonStorageWithdrawInputRoot
       else pure none
   | _ => pure none
 
+private partial def rewriteJsonI64InputRoot
+    (method : Core.IR.Method Ops.ValKind Ops.OpExt) : Ops.Val → Except String (Option Ops.Val)
+  | .field (.arg 0) "value" => pure (some (.arg 0))
+  | .field (.arg 0) name =>
+      throw s!"near/codec: unsupported NearI64 input projection {name}"
+  | .arg index =>
+      if index == 0 then
+        throw "near/codec: NearI64 input requires a value projection"
+      else if method.kind != .init && index == method.paramCount then
+        pure (some (.arg 1))
+      else pure none
+  | _ => pure none
+
 private structure BoundInput where
   ixName : String
   schema : Core.Codec.Schema
@@ -1464,6 +1477,7 @@ private def bindInput (method : Core.IR.Method Ops.ValKind Ops.OpExt) :
     | .jsonStorageDepositArgs => rewriteJsonStorageDepositInputRoot method
     | .jsonStorageUnregisterArgs => rewriteJsonStorageUnregisterInputRoot method
     | .jsonStorageWithdrawArgs => rewriteJsonStorageWithdrawInputRoot method
+    | .jsonI64 => rewriteJsonI64InputRoot method
   let ops ← Core.Target.rewriteOpsValues rewriteRoot rewritePayload method.ops
   let localCount := plan.localCount
   let scalarSchemas := Array.replicate localCount (.scalar .uint64)

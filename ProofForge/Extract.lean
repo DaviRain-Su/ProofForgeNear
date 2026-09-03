@@ -96,13 +96,18 @@ private partial def codecSchemaOfTypeAt (env : Environment) (fuel : Nat)
     if type.getAppFn.constName? == some ``ProofForge.Wasm.Near.Runtime.NearToken then
       mkConst ``ProofForge.Core.Value.UInt128
     else
-      match type.getAppFn.constName? with
-      | some name =>
-          match env.find? name with
-          | some (.defnInfo info) =>
-              if info.type.hasLooseBVars then type else info.value
-          | _ => type
-      | none => type
+      -- NearI64 must keep its own record identity so it gets the dedicated JSON i64
+      -- input plan instead of the plain UInt64 raw-u64 wire shape.
+      if type.getAppFn.constName? == some ``ProofForge.Wasm.Near.Runtime.NearI64 then
+        type
+      else
+        match type.getAppFn.constName? with
+        | some name =>
+            match env.find? name with
+            | some (.defnInfo info) =>
+                if info.type.hasLooseBVars then type else info.value
+            | _ => type
+        | none => type
   if let some scalar := codecScalarOfType type then
     return .scalar scalar
   let head := type.getAppFn.constName?

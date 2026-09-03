@@ -311,4 +311,95 @@ immediate predecessor to equal the current contract account. -/
 
 end Access
 
+namespace Hash
+
+/-- Compile-time SHA-256 result bound. Call `hash` then consume `w0..w3` before another crypto op. -/
+abbrev Sha256 := Nat
+
+@[pf_inline] def Sha256.hash {inputCapacity : Nat}
+    (buffer : Sha256) (input : ProofForge.Core.Value.BoundedBytes inputCapacity) : UInt64 :=
+  Runtime.sha256Hash buffer inputCapacity input
+
+@[pf_inline] def Sha256.w0 (buffer : Sha256) : UInt64 := Runtime.sha256ResultW0 buffer
+@[pf_inline] def Sha256.w1 (buffer : Sha256) : UInt64 := Runtime.sha256ResultW1 buffer
+@[pf_inline] def Sha256.w2 (buffer : Sha256) : UInt64 := Runtime.sha256ResultW2 buffer
+@[pf_inline] def Sha256.w3 (buffer : Sha256) : UInt64 := Runtime.sha256ResultW3 buffer
+
+/-- Compile-time Keccak-256 result bound. -/
+abbrev Keccak256 := Nat
+
+@[pf_inline] def Keccak256.hash {inputCapacity : Nat}
+    (buffer : Keccak256) (input : ProofForge.Core.Value.BoundedBytes inputCapacity) : UInt64 :=
+  Runtime.keccak256Hash buffer inputCapacity input
+
+@[pf_inline] def Keccak256.w0 (buffer : Keccak256) : UInt64 := Runtime.keccak256ResultW0 buffer
+@[pf_inline] def Keccak256.w1 (buffer : Keccak256) : UInt64 := Runtime.keccak256ResultW1 buffer
+@[pf_inline] def Keccak256.w2 (buffer : Keccak256) : UInt64 := Runtime.keccak256ResultW2 buffer
+@[pf_inline] def Keccak256.w3 (buffer : Keccak256) : UInt64 := Runtime.keccak256ResultW3 buffer
+
+/-- Compile-time Keccak-512 result bound. Not SHA3-512. -/
+abbrev Keccak512 := Nat
+
+@[pf_inline] def Keccak512.hash {inputCapacity : Nat}
+    (buffer : Keccak512) (input : ProofForge.Core.Value.BoundedBytes inputCapacity) : UInt64 :=
+  Runtime.keccak512Hash buffer inputCapacity input
+
+@[pf_inline] def Keccak512.w0 (buffer : Keccak512) : UInt64 := Runtime.keccak512ResultW0 buffer
+@[pf_inline] def Keccak512.w1 (buffer : Keccak512) : UInt64 := Runtime.keccak512ResultW1 buffer
+@[pf_inline] def Keccak512.w2 (buffer : Keccak512) : UInt64 := Runtime.keccak512ResultW2 buffer
+@[pf_inline] def Keccak512.w3 (buffer : Keccak512) : UInt64 := Runtime.keccak512ResultW3 buffer
+@[pf_inline] def Keccak512.w4 (buffer : Keccak512) : UInt64 := Runtime.keccak512ResultW4 buffer
+@[pf_inline] def Keccak512.w5 (buffer : Keccak512) : UInt64 := Runtime.keccak512ResultW5 buffer
+@[pf_inline] def Keccak512.w6 (buffer : Keccak512) : UInt64 := Runtime.keccak512ResultW6 buffer
+@[pf_inline] def Keccak512.w7 (buffer : Keccak512) : UInt64 := Runtime.keccak512ResultW7 buffer
+
+/-- Compile-time RIPEMD-160 result bound (20 bytes; `w2` is 4-byte zero-padded). -/
+abbrev Ripemd160 := Nat
+
+@[pf_inline] def Ripemd160.hash {inputCapacity : Nat}
+    (buffer : Ripemd160) (input : ProofForge.Core.Value.BoundedBytes inputCapacity) : UInt64 :=
+  Runtime.ripemd160Hash buffer inputCapacity input
+
+@[pf_inline] def Ripemd160.w0 (buffer : Ripemd160) : UInt64 := Runtime.ripemd160ResultW0 buffer
+@[pf_inline] def Ripemd160.w1 (buffer : Ripemd160) : UInt64 := Runtime.ripemd160ResultW1 buffer
+@[pf_inline] def Ripemd160.w2 (buffer : Ripemd160) : UInt64 := Runtime.ripemd160ResultW2 buffer
+
+/-- Compile-time `ecrecover` result bound. `status = 0` means recovered; nonzero fails closed. -/
+abbrev Ecrecover := Nat
+
+notation "CryptoBytes32" => Runtime.CryptoBytes32
+notation "CryptoBytes64" => Runtime.CryptoBytes64
+
+@[pf_inline] def Ecrecover.recover (buffer : Ecrecover)
+    (hash : CryptoBytes32) (sig : CryptoBytes64) (v malleability : UInt64) : UInt64 :=
+  Runtime.ecrecover buffer hash sig v malleability
+
+@[pf_inline] def Ecrecover.status (buffer : Ecrecover) : UInt64 :=
+  Runtime.ecrecoverStatus buffer
+
+@[pf_inline] def Ecrecover.ok (buffer : Ecrecover) : Bool :=
+  buffer.status == 0
+
+@[pf_inline] def Ecrecover.w0 (buffer : Ecrecover) : UInt64 := Runtime.ecrecoverResultW0 buffer
+@[pf_inline] def Ecrecover.w1 (buffer : Ecrecover) : UInt64 := Runtime.ecrecoverResultW1 buffer
+@[pf_inline] def Ecrecover.w2 (buffer : Ecrecover) : UInt64 := Runtime.ecrecoverResultW2 buffer
+@[pf_inline] def Ecrecover.w3 (buffer : Ecrecover) : UInt64 := Runtime.ecrecoverResultW3 buffer
+@[pf_inline] def Ecrecover.w4 (buffer : Ecrecover) : UInt64 := Runtime.ecrecoverResultW4 buffer
+@[pf_inline] def Ecrecover.w5 (buffer : Ecrecover) : UInt64 := Runtime.ecrecoverResultW5 buffer
+@[pf_inline] def Ecrecover.w6 (buffer : Ecrecover) : UInt64 := Runtime.ecrecoverResultW6 buffer
+@[pf_inline] def Ecrecover.w7 (buffer : Ecrecover) : UInt64 := Runtime.ecrecoverResultW7 buffer
+
+/-- Compile-time `ed25519_verify` result bound. Host `1` is valid; `0` is invalid. -/
+abbrev Ed25519 := Nat
+
+@[pf_inline] def Ed25519.verify {msgCapacity : Nat} (buffer : Ed25519)
+    (sig : CryptoBytes64) (msg : ProofForge.Core.Value.BoundedBytes msgCapacity)
+    (pk : CryptoBytes32) : UInt64 :=
+  Runtime.ed25519Verify buffer msgCapacity sig msg pk
+
+@[pf_inline] def Ed25519.ok (buffer : Ed25519) : Bool :=
+  Runtime.ed25519VerifyOk buffer != 0
+
+end Hash
+
 end ProofForge.Wasm.Near.Sdk

@@ -242,6 +242,20 @@ def OpExt.mapValues (mapValue : Val → Val) : OpExt Val → OpExt Val
           .near (.storageRemove resultCapacity keyCapacity (key.map mapValue))
       | .storageHasKey resultCapacity keyCapacity key =>
           .near (.storageHasKey resultCapacity keyCapacity (key.map mapValue))
+      | .sha256Hash resultCapacity inputCapacity input =>
+          .near (.sha256Hash resultCapacity inputCapacity (input.map mapValue))
+      | .keccak256Hash resultCapacity inputCapacity input =>
+          .near (.keccak256Hash resultCapacity inputCapacity (input.map mapValue))
+      | .keccak512Hash resultCapacity inputCapacity input =>
+          .near (.keccak512Hash resultCapacity inputCapacity (input.map mapValue))
+      | .ripemd160Hash resultCapacity inputCapacity input =>
+          .near (.ripemd160Hash resultCapacity inputCapacity (input.map mapValue))
+      | .ecrecover resultCapacity hash sig v malleability =>
+          .near (.ecrecover resultCapacity (hash.map mapValue) (sig.map mapValue)
+            (mapValue v) (mapValue malleability))
+      | .ed25519Verify resultCapacity sig msg pk =>
+          .near (.ed25519Verify resultCapacity (sig.map mapValue) (msg.map mapValue)
+            (pk.map mapValue))
       | .reserved => .near .reserved
 
 def OpExt.values : OpExt Val → Array Val
@@ -363,6 +377,10 @@ def OpExt.values : OpExt Val → Array Val
       | .transientBuffer64Set _ index value => #[index, value]
       | .storageRead _ _ key | .storageRemove _ _ key | .storageHasKey _ _ key => key
       | .storageWrite _ _ _ key value => key ++ value
+      | .sha256Hash _ _ input | .keccak256Hash _ _ input
+      | .keccak512Hash _ _ input | .ripemd160Hash _ _ input => input
+      | .ecrecover _ hash sig v malleability => hash ++ sig ++ #[v, malleability]
+      | .ed25519Verify _ sig msg pk => sig ++ msg ++ pk
       | .reserved => #[]
 
 def cfgDialect : Core.CFG.Dialect ValKind OpExt where
@@ -380,8 +398,6 @@ def methodToCFG (method : Method) : Except String CFG := do
     if method.kind == .init then Core.CFG.lowerInit cfgDialect method.ops
     else Core.CFG.lower cfgDialect method.ops
   Core.CFG.optimize cfgDialect graph
-
-
 
 def OpExt.wellFormed : OpExt Val → Bool
   | .near payload =>
@@ -745,9 +761,33 @@ def OpExt.wellFormed : OpExt Val → Bool
             Wasm.Near.Codec.storageCapacityValid valueCapacity &&
             key.size == keyCapacity + 1 && value.size == valueCapacity + 1 &&
             key.all (·.wellFormed ValKind.arity) && value.all (·.wellFormed ValKind.arity)
+      | .sha256Hash resultCapacity inputCapacity input =>
+          resultCapacity == 32 && Wasm.Near.Codec.storageCapacityValid inputCapacity &&
+            input.size == inputCapacity + 1 && input.all (·.wellFormed ValKind.arity)
+      | .keccak256Hash resultCapacity inputCapacity input =>
+          resultCapacity == 32 && Wasm.Near.Codec.storageCapacityValid inputCapacity &&
+            input.size == inputCapacity + 1 && input.all (·.wellFormed ValKind.arity)
+      | .keccak512Hash resultCapacity inputCapacity input =>
+          resultCapacity == 64 && Wasm.Near.Codec.storageCapacityValid inputCapacity &&
+            input.size == inputCapacity + 1 && input.all (·.wellFormed ValKind.arity)
+      | .ripemd160Hash resultCapacity inputCapacity input =>
+          resultCapacity == 20 && Wasm.Near.Codec.storageCapacityValid inputCapacity &&
+            input.size == inputCapacity + 1 && input.all (·.wellFormed ValKind.arity)
+      | .ecrecover resultCapacity hash sig v malleability =>
+          resultCapacity == 64 && hash.size == 4 && sig.size == 8 &&
+            hash.all (·.wellFormed ValKind.arity) && sig.all (·.wellFormed ValKind.arity) &&
+            v.wellFormed ValKind.arity && malleability.wellFormed ValKind.arity
+      | .ed25519Verify resultCapacity sig msg pk =>
+          resultCapacity == 8 && sig.size == 8 && pk.size == 4 &&
+            1 ≤ msg.size && Wasm.Near.Codec.storageCapacityValid (msg.size - 1) &&
+            msg.size == (msg.size - 1) + 1 &&
+            sig.all (·.wellFormed ValKind.arity) && pk.all (·.wellFormed ValKind.arity) &&
+            msg.all (·.wellFormed ValKind.arity)
       | .reserved => false
 
 def Op.wellFormed (op : Op) : Bool :=
   Core.Ops.Op.wellFormed ValKind.arity OpExt.wellFormed op
 
 end ProofForge.Extract.IR
+
+

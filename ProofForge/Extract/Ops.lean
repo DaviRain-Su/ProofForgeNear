@@ -83,6 +83,65 @@ private def nearLeaf (kind : ProofForge.Wasm.Near.Ops.ValKind) : Val :=
 @[match_pattern] def Val.nearRandomSeedW2 : Val := nearLeaf .randomSeedW2
 @[match_pattern] def Val.nearRandomSeedW3 : Val := nearLeaf .randomSeedW3
 
+@[match_pattern] def Val.nearSha256ResultW0 (capacity : Nat) : Val :=
+  nearLeaf (.sha256ResultW0 capacity)
+@[match_pattern] def Val.nearSha256ResultW1 (capacity : Nat) : Val :=
+  nearLeaf (.sha256ResultW1 capacity)
+@[match_pattern] def Val.nearSha256ResultW2 (capacity : Nat) : Val :=
+  nearLeaf (.sha256ResultW2 capacity)
+@[match_pattern] def Val.nearSha256ResultW3 (capacity : Nat) : Val :=
+  nearLeaf (.sha256ResultW3 capacity)
+@[match_pattern] def Val.nearKeccak256ResultW0 (capacity : Nat) : Val :=
+  nearLeaf (.keccak256ResultW0 capacity)
+@[match_pattern] def Val.nearKeccak256ResultW1 (capacity : Nat) : Val :=
+  nearLeaf (.keccak256ResultW1 capacity)
+@[match_pattern] def Val.nearKeccak256ResultW2 (capacity : Nat) : Val :=
+  nearLeaf (.keccak256ResultW2 capacity)
+@[match_pattern] def Val.nearKeccak256ResultW3 (capacity : Nat) : Val :=
+  nearLeaf (.keccak256ResultW3 capacity)
+@[match_pattern] def Val.nearKeccak512ResultW0 (capacity : Nat) : Val :=
+  nearLeaf (.keccak512ResultW0 capacity)
+@[match_pattern] def Val.nearKeccak512ResultW1 (capacity : Nat) : Val :=
+  nearLeaf (.keccak512ResultW1 capacity)
+@[match_pattern] def Val.nearKeccak512ResultW2 (capacity : Nat) : Val :=
+  nearLeaf (.keccak512ResultW2 capacity)
+@[match_pattern] def Val.nearKeccak512ResultW3 (capacity : Nat) : Val :=
+  nearLeaf (.keccak512ResultW3 capacity)
+@[match_pattern] def Val.nearKeccak512ResultW4 (capacity : Nat) : Val :=
+  nearLeaf (.keccak512ResultW4 capacity)
+@[match_pattern] def Val.nearKeccak512ResultW5 (capacity : Nat) : Val :=
+  nearLeaf (.keccak512ResultW5 capacity)
+@[match_pattern] def Val.nearKeccak512ResultW6 (capacity : Nat) : Val :=
+  nearLeaf (.keccak512ResultW6 capacity)
+@[match_pattern] def Val.nearKeccak512ResultW7 (capacity : Nat) : Val :=
+  nearLeaf (.keccak512ResultW7 capacity)
+@[match_pattern] def Val.nearRipemd160ResultW0 (capacity : Nat) : Val :=
+  nearLeaf (.ripemd160ResultW0 capacity)
+@[match_pattern] def Val.nearRipemd160ResultW1 (capacity : Nat) : Val :=
+  nearLeaf (.ripemd160ResultW1 capacity)
+@[match_pattern] def Val.nearRipemd160ResultW2 (capacity : Nat) : Val :=
+  nearLeaf (.ripemd160ResultW2 capacity)
+@[match_pattern] def Val.nearEcrecoverStatus (capacity : Nat) : Val :=
+  nearLeaf (.ecrecoverStatus capacity)
+@[match_pattern] def Val.nearEcrecoverResultW0 (capacity : Nat) : Val :=
+  nearLeaf (.ecrecoverResultW0 capacity)
+@[match_pattern] def Val.nearEcrecoverResultW1 (capacity : Nat) : Val :=
+  nearLeaf (.ecrecoverResultW1 capacity)
+@[match_pattern] def Val.nearEcrecoverResultW2 (capacity : Nat) : Val :=
+  nearLeaf (.ecrecoverResultW2 capacity)
+@[match_pattern] def Val.nearEcrecoverResultW3 (capacity : Nat) : Val :=
+  nearLeaf (.ecrecoverResultW3 capacity)
+@[match_pattern] def Val.nearEcrecoverResultW4 (capacity : Nat) : Val :=
+  nearLeaf (.ecrecoverResultW4 capacity)
+@[match_pattern] def Val.nearEcrecoverResultW5 (capacity : Nat) : Val :=
+  nearLeaf (.ecrecoverResultW5 capacity)
+@[match_pattern] def Val.nearEcrecoverResultW6 (capacity : Nat) : Val :=
+  nearLeaf (.ecrecoverResultW6 capacity)
+@[match_pattern] def Val.nearEcrecoverResultW7 (capacity : Nat) : Val :=
+  nearLeaf (.ecrecoverResultW7 capacity)
+@[match_pattern] def Val.nearEd25519VerifyOk (capacity : Nat) : Val :=
+  nearLeaf (.ed25519VerifyOk capacity)
+
 
 @[match_pattern] def Val.nearTransientBuffer64Get (capacity : Nat) (index : Val) : Val :=
   .ext (.near (.transientBuffer64Get capacity)) #[index]
@@ -380,6 +439,30 @@ private def nearLeaf (kind : ProofForge.Wasm.Near.Ops.ValKind) : Val :=
     (resultCapacity keyCapacity : Nat) (key : Array Val) : Op :=
   .ext (.near (.storageHasKey resultCapacity keyCapacity key))
 
+@[match_pattern] def Op.nearSha256Hash
+    (resultCapacity inputCapacity : Nat) (input : Array Val) : Op :=
+  .ext (.near (.sha256Hash resultCapacity inputCapacity input))
+
+@[match_pattern] def Op.nearKeccak256Hash
+    (resultCapacity inputCapacity : Nat) (input : Array Val) : Op :=
+  .ext (.near (.keccak256Hash resultCapacity inputCapacity input))
+
+@[match_pattern] def Op.nearKeccak512Hash
+    (resultCapacity inputCapacity : Nat) (input : Array Val) : Op :=
+  .ext (.near (.keccak512Hash resultCapacity inputCapacity input))
+
+@[match_pattern] def Op.nearRipemd160Hash
+    (resultCapacity inputCapacity : Nat) (input : Array Val) : Op :=
+  .ext (.near (.ripemd160Hash resultCapacity inputCapacity input))
+
+@[match_pattern] def Op.nearEcrecover
+    (resultCapacity : Nat) (hash sig : Array Val) (v malleability : Val) : Op :=
+  .ext (.near (.ecrecover resultCapacity hash sig v malleability))
+
+@[match_pattern] def Op.nearEd25519Verify
+    (resultCapacity : Nat) (sig msg pk : Array Val) : Op :=
+  .ext (.near (.ed25519Verify resultCapacity sig msg pk))
+
 
 
 private partial def walk (ops : Array Op) (predicate : Op → Bool) : Bool :=
@@ -475,7 +558,13 @@ def hasNearEffect (ops : Array Op) : Bool :=
     | .ext (.near (.storageRead _ _ _))
     | .ext (.near (.storageWrite _ _ _ _ _))
     | .ext (.near (.storageRemove _ _ _))
-    | .ext (.near (.storageHasKey _ _ _)) => true
+    | .ext (.near (.storageHasKey _ _ _))
+    | .ext (.near (.sha256Hash _ _ _))
+    | .ext (.near (.keccak256Hash _ _ _))
+    | .ext (.near (.keccak512Hash _ _ _))
+    | .ext (.near (.ripemd160Hash _ _ _))
+    | .ext (.near (.ecrecover _ _ _ _ _))
+    | .ext (.near (.ed25519Verify _ _ _ _)) => true
     | _ => false
 
 end ProofForge.Extract.Ops

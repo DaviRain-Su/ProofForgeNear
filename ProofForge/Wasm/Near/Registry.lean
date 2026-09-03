@@ -49,7 +49,9 @@ def entries : Array Entry := #[
   { name := "NearPromiseHandle", digest := "c5a967669da142d8" },
   { name := "NearPromiseResult", digest := "7f65ba128b01a035" },
   { name := "NearMigration", digest := "10461b071ae0259e" },
-  { name := "NearSigner", digest := "1cc6cde0752468cb" }
+  { name := "NearSigner", digest := "1cc6cde0752468cb" },
+  { name := "NearCrypto", digest := "f7e452de5f1bcc0a" },
+  { name := "NearLazy", digest := "a3e935b5c94838f8" }
 ]
 
 def names : Array String := entries.map (·.name)

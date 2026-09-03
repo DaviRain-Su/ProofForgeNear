@@ -13,6 +13,8 @@ import Tests.NearBytesSpec
 import Tests.NearCtxSpec
 import Tests.NearChainSpec
 import Tests.NearSignerSpec
+import Tests.NearLazySpec
+import Tests.NearCryptoSpec
 import Tests.NearFtReceiverDualSpec
 import Tests.NearFtReceiverValueSpec
 import Tests.NearFungibleLedgerSpec

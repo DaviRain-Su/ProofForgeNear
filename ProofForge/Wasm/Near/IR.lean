@@ -389,6 +389,20 @@ private def projectOpExt
           return .storageRemove resultCapacity keyCapacity (← key.mapM _projectVal)
       | .storageHasKey resultCapacity keyCapacity key =>
           return .storageHasKey resultCapacity keyCapacity (← key.mapM _projectVal)
+      | .sha256Hash resultCapacity inputCapacity input =>
+          return .sha256Hash resultCapacity inputCapacity (← input.mapM _projectVal)
+      | .keccak256Hash resultCapacity inputCapacity input =>
+          return .keccak256Hash resultCapacity inputCapacity (← input.mapM _projectVal)
+      | .keccak512Hash resultCapacity inputCapacity input =>
+          return .keccak512Hash resultCapacity inputCapacity (← input.mapM _projectVal)
+      | .ripemd160Hash resultCapacity inputCapacity input =>
+          return .ripemd160Hash resultCapacity inputCapacity (← input.mapM _projectVal)
+      | .ecrecover resultCapacity hash sig v malleability =>
+          return .ecrecover resultCapacity (← hash.mapM _projectVal) (← sig.mapM _projectVal)
+            (← _projectVal v) (← _projectVal malleability)
+      | .ed25519Verify resultCapacity sig msg pk =>
+          return .ed25519Verify resultCapacity (← sig.mapM _projectVal) (← msg.mapM _projectVal)
+            (← pk.mapM _projectVal)
       | .reserved => throw "extract/unsupported: near rejects reserved effect"
 
 /-- Static registration of the extractor-to-NEAR projection. Foreign-chain leaves
@@ -449,6 +463,22 @@ def extValCanon : Ops.ValKind → String
   | .signerPkW3 => "npk3" | .signerPkW4 => "npk4"
   | .randomSeed => "nseed"
   | .randomSeedW1 => "nseed1" | .randomSeedW2 => "nseed2" | .randomSeedW3 => "nseed3"
+  | .sha256ResultW0 c => s!"nsha256.w0.{c}" | .sha256ResultW1 c => s!"nsha256.w1.{c}"
+  | .sha256ResultW2 c => s!"nsha256.w2.{c}" | .sha256ResultW3 c => s!"nsha256.w3.{c}"
+  | .keccak256ResultW0 c => s!"nkeccak256.w0.{c}" | .keccak256ResultW1 c => s!"nkeccak256.w1.{c}"
+  | .keccak256ResultW2 c => s!"nkeccak256.w2.{c}" | .keccak256ResultW3 c => s!"nkeccak256.w3.{c}"
+  | .keccak512ResultW0 c => s!"nkeccak512.w0.{c}" | .keccak512ResultW1 c => s!"nkeccak512.w1.{c}"
+  | .keccak512ResultW2 c => s!"nkeccak512.w2.{c}" | .keccak512ResultW3 c => s!"nkeccak512.w3.{c}"
+  | .keccak512ResultW4 c => s!"nkeccak512.w4.{c}" | .keccak512ResultW5 c => s!"nkeccak512.w5.{c}"
+  | .keccak512ResultW6 c => s!"nkeccak512.w6.{c}" | .keccak512ResultW7 c => s!"nkeccak512.w7.{c}"
+  | .ripemd160ResultW0 c => s!"nripemd160.w0.{c}" | .ripemd160ResultW1 c => s!"nripemd160.w1.{c}"
+  | .ripemd160ResultW2 c => s!"nripemd160.w2.{c}"
+  | .ecrecoverStatus c => s!"necrecover.status.{c}"
+  | .ecrecoverResultW0 c => s!"necrecover.w0.{c}" | .ecrecoverResultW1 c => s!"necrecover.w1.{c}"
+  | .ecrecoverResultW2 c => s!"necrecover.w2.{c}" | .ecrecoverResultW3 c => s!"necrecover.w3.{c}"
+  | .ecrecoverResultW4 c => s!"necrecover.w4.{c}" | .ecrecoverResultW5 c => s!"necrecover.w5.{c}"
+  | .ecrecoverResultW6 c => s!"necrecover.w6.{c}" | .ecrecoverResultW7 c => s!"necrecover.w7.{c}"
+  | .ed25519VerifyOk c => s!"ned25519.ok.{c}"
   | .transientBuffer64Get capacity => s!"ntb64.get.{capacity}"
   | .storageResultStatus capacity => s!"nstore.status.{capacity}"
   | .storageResultLength capacity => s!"nstore.length.{capacity}"
@@ -820,6 +850,19 @@ def extOpCanon : Ops.OpExt (Wasm.IR.Val Ops.ValKind) → String
       s!"nstore.remove.{resultCapacity}.{keyCapacity}({canonValues key})"
   | .storageHasKey resultCapacity keyCapacity key =>
       s!"nstore.has.{resultCapacity}.{keyCapacity}({canonValues key})"
+  | .sha256Hash resultCapacity inputCapacity input =>
+      s!"nsha256.{resultCapacity}.{inputCapacity}({canonValues input})"
+  | .keccak256Hash resultCapacity inputCapacity input =>
+      s!"nkeccak256.{resultCapacity}.{inputCapacity}({canonValues input})"
+  | .keccak512Hash resultCapacity inputCapacity input =>
+      s!"nkeccak512.{resultCapacity}.{inputCapacity}({canonValues input})"
+  | .ripemd160Hash resultCapacity inputCapacity input =>
+      s!"nripemd160.{resultCapacity}.{inputCapacity}({canonValues input})"
+  | .ecrecover resultCapacity hash sig v malleability =>
+      s!"necrecover.{resultCapacity}({canonValues hash};{canonValues sig};" ++
+        s!"{Wasm.IR.valCanon extValCanon v},{Wasm.IR.valCanon extValCanon malleability})"
+  | .ed25519Verify resultCapacity sig msg pk =>
+      s!"ned25519.{resultCapacity}({canonValues sig};{canonValues msg};{canonValues pk})"
   | .reserved => "wext"
 
 def slotNames (p : Program) : Array String :=
@@ -1076,6 +1119,20 @@ private def rewritePayload
       return .storageRemove resultCapacity keyCapacity (← key.mapM rewriteValue)
   | .storageHasKey resultCapacity keyCapacity key =>
       return .storageHasKey resultCapacity keyCapacity (← key.mapM rewriteValue)
+  | .sha256Hash resultCapacity inputCapacity input =>
+      return .sha256Hash resultCapacity inputCapacity (← input.mapM rewriteValue)
+  | .keccak256Hash resultCapacity inputCapacity input =>
+      return .keccak256Hash resultCapacity inputCapacity (← input.mapM rewriteValue)
+  | .keccak512Hash resultCapacity inputCapacity input =>
+      return .keccak512Hash resultCapacity inputCapacity (← input.mapM rewriteValue)
+  | .ripemd160Hash resultCapacity inputCapacity input =>
+      return .ripemd160Hash resultCapacity inputCapacity (← input.mapM rewriteValue)
+  | .ecrecover resultCapacity hash sig v malleability =>
+      return .ecrecover resultCapacity (← hash.mapM rewriteValue) (← sig.mapM rewriteValue)
+        (← rewriteValue v) (← rewriteValue malleability)
+  | .ed25519Verify resultCapacity sig msg pk =>
+      return .ed25519Verify resultCapacity (← sig.mapM rewriteValue) (← msg.mapM rewriteValue)
+        (← pk.mapM rewriteValue)
   | .reserved => pure .reserved
 
 private partial def rewriteInputRoot (method : Core.IR.Method Ops.ValKind Ops.OpExt)

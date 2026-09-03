@@ -9,8 +9,9 @@ import ProofForge.Wasm.Near.Codec
 Value/effect extensions owned by the NEAR Protocol chain. v0 admits scalar
 context reads, lossless u128 token values, lossless 64-byte account-id leaves,
 invocation-memory operations, bounded raw storage, static Promise calls, one static self-callback
-edge, native transfers, and bounded callback-result observation. Promise joins and hashing stay
-absent.
+edge, native transfers, bounded callback-result observation, and view-safe hashing /
+signature host calls (`sha256` / `keccak256` / `keccak512` / `ripemd160` / `ecrecover` /
+`ed25519_verify`).
 `reserved` is rejected by `wellFormed`.
 -/
 
@@ -58,6 +59,24 @@ inductive ValKind where
   /-- `random_seed` 32 bytes as four little-endian windows. -/
   | randomSeed
   | randomSeedW1 | randomSeedW2 | randomSeedW3
+  /-- Crypto host result windows. Capacity is the declared result bound; bytes pack little-endian. -/
+  | sha256ResultW0 (capacity : Nat) | sha256ResultW1 (capacity : Nat)
+  | sha256ResultW2 (capacity : Nat) | sha256ResultW3 (capacity : Nat)
+  | keccak256ResultW0 (capacity : Nat) | keccak256ResultW1 (capacity : Nat)
+  | keccak256ResultW2 (capacity : Nat) | keccak256ResultW3 (capacity : Nat)
+  | keccak512ResultW0 (capacity : Nat) | keccak512ResultW1 (capacity : Nat)
+  | keccak512ResultW2 (capacity : Nat) | keccak512ResultW3 (capacity : Nat)
+  | keccak512ResultW4 (capacity : Nat) | keccak512ResultW5 (capacity : Nat)
+  | keccak512ResultW6 (capacity : Nat) | keccak512ResultW7 (capacity : Nat)
+  /-- RIPEMD-160 is 20 bytes; W2 holds the last 4 bytes zero-padded. -/
+  | ripemd160ResultW0 (capacity : Nat) | ripemd160ResultW1 (capacity : Nat)
+  | ripemd160ResultW2 (capacity : Nat)
+  | ecrecoverStatus (capacity : Nat)
+  | ecrecoverResultW0 (capacity : Nat) | ecrecoverResultW1 (capacity : Nat)
+  | ecrecoverResultW2 (capacity : Nat) | ecrecoverResultW3 (capacity : Nat)
+  | ecrecoverResultW4 (capacity : Nat) | ecrecoverResultW5 (capacity : Nat)
+  | ecrecoverResultW6 (capacity : Nat) | ecrecoverResultW7 (capacity : Nat)
+  | ed25519VerifyOk (capacity : Nat)
   /-- Read from the one active invocation-local UInt64 buffer. -/
   | transientBuffer64Get (capacity : Nat)
   /-- Metadata and byte access for the latest raw-storage operation. -/
@@ -219,6 +238,12 @@ inductive OpExt (V : Type) where
       (key value : Array V)
   | storageRemove (resultCapacity keyCapacity : Nat) (key : Array V)
   | storageHasKey (resultCapacity keyCapacity : Nat) (key : Array V)
+  | sha256Hash (resultCapacity inputCapacity : Nat) (input : Array V)
+  | keccak256Hash (resultCapacity inputCapacity : Nat) (input : Array V)
+  | keccak512Hash (resultCapacity inputCapacity : Nat) (input : Array V)
+  | ripemd160Hash (resultCapacity inputCapacity : Nat) (input : Array V)
+  | ecrecover (resultCapacity : Nat) (hash sig : Array V) (v malleability : V)
+  | ed25519Verify (resultCapacity : Nat) (sig msg pk : Array V)
   /-- Placeholder; never produced by the v0 lowering and rejected by `wellFormed`. -/
   | reserved
   deriving BEq, Repr, Inhabited
@@ -238,6 +263,16 @@ private def accountIdFrameWellFormed (values : Array Val) : Bool :=
 
 private def packedBytes64FrameWellFormed (values : Array Val) : Bool :=
   values.size == 9 && values.all (·.wellFormed ValKind.arity)
+
+private def packedWords32WellFormed (values : Array Val) : Bool :=
+  values.size == 4 && values.all (·.wellFormed ValKind.arity)
+
+private def packedWords64WellFormed (values : Array Val) : Bool :=
+  values.size == 8 && values.all (·.wellFormed ValKind.arity)
+
+private def cryptoHashWellFormed (resultCapacity expected inputCapacity : Nat)
+    (input : Array Val) : Bool :=
+  resultCapacity == expected && storageFrameWellFormed inputCapacity input
 
 def OpExt.wellFormed : OpExt Val → Bool
   | .logUtf8 message => message.toUTF8.size ≤ 1024
@@ -487,6 +522,21 @@ def OpExt.wellFormed : OpExt Val → Bool
   | .storageWrite resultCapacity keyCapacity valueCapacity key value =>
       Codec.storageCapacityValid resultCapacity && storageKeyFrameWellFormed keyCapacity key &&
         storageFrameWellFormed valueCapacity value
+  | .sha256Hash resultCapacity inputCapacity input =>
+      cryptoHashWellFormed resultCapacity 32 inputCapacity input
+  | .keccak256Hash resultCapacity inputCapacity input =>
+      cryptoHashWellFormed resultCapacity 32 inputCapacity input
+  | .keccak512Hash resultCapacity inputCapacity input =>
+      cryptoHashWellFormed resultCapacity 64 inputCapacity input
+  | .ripemd160Hash resultCapacity inputCapacity input =>
+      cryptoHashWellFormed resultCapacity 20 inputCapacity input
+  | .ecrecover resultCapacity hash sig v malleability =>
+      resultCapacity == 64 && packedWords32WellFormed hash && packedWords64WellFormed sig &&
+        v.wellFormed ValKind.arity && malleability.wellFormed ValKind.arity
+  | .ed25519Verify resultCapacity sig msg pk =>
+      resultCapacity == 8 && packedWords64WellFormed sig && packedWords32WellFormed pk &&
+        1 ≤ msg.size && storageFrameWellFormed (msg.size - 1) msg
+
   | .reserved => false
 
 def Op.wellFormed (op : Op) : Bool :=
@@ -700,6 +750,19 @@ private def mapCfgPayload (mapValue : Val → Val) : OpExt Val → OpExt Val
       .storageRemove resultCapacity keyCapacity (key.map mapValue)
   | .storageHasKey resultCapacity keyCapacity key =>
       .storageHasKey resultCapacity keyCapacity (key.map mapValue)
+  | .sha256Hash resultCapacity inputCapacity input =>
+      .sha256Hash resultCapacity inputCapacity (input.map mapValue)
+  | .keccak256Hash resultCapacity inputCapacity input =>
+      .keccak256Hash resultCapacity inputCapacity (input.map mapValue)
+  | .keccak512Hash resultCapacity inputCapacity input =>
+      .keccak512Hash resultCapacity inputCapacity (input.map mapValue)
+  | .ripemd160Hash resultCapacity inputCapacity input =>
+      .ripemd160Hash resultCapacity inputCapacity (input.map mapValue)
+  | .ecrecover resultCapacity hash sig v malleability =>
+      .ecrecover resultCapacity (hash.map mapValue) (sig.map mapValue)
+        (mapValue v) (mapValue malleability)
+  | .ed25519Verify resultCapacity sig msg pk =>
+      .ed25519Verify resultCapacity (sig.map mapValue) (msg.map mapValue) (pk.map mapValue)
   | .reserved => .reserved
 
 private def cfgPayloadValues : OpExt Val → Array Val
@@ -823,6 +886,10 @@ private def cfgPayloadValues : OpExt Val → Array Val
   | .transientBuffer64Set _ index value => #[index, value]
   | .storageRead _ _ key | .storageRemove _ _ key | .storageHasKey _ _ key => key
   | .storageWrite _ _ _ key value => key ++ value
+  | .sha256Hash _ _ input | .keccak256Hash _ _ input
+  | .keccak512Hash _ _ input | .ripemd160Hash _ _ input => input
+  | .ecrecover _ hash sig v malleability => hash ++ sig ++ #[v, malleability]
+  | .ed25519Verify _ sig msg pk => sig ++ msg ++ pk
   | .reserved => #[]
 
 def cfgDialect : Core.CFG.Dialect ValKind OpExt where

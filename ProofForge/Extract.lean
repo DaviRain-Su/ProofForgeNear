@@ -922,6 +922,20 @@ def extractMethod (env : Environment) (kind : Core.IR.MethodKind) (n : Name) :
                 .storageRemove resultCapacity keyCapacity (key.map (flipVal fuel'))
             | .storageHasKey resultCapacity keyCapacity key =>
                 .storageHasKey resultCapacity keyCapacity (key.map (flipVal fuel'))
+            | .sha256Hash resultCapacity inputCapacity input =>
+                .sha256Hash resultCapacity inputCapacity (input.map (flipVal fuel'))
+            | .keccak256Hash resultCapacity inputCapacity input =>
+                .keccak256Hash resultCapacity inputCapacity (input.map (flipVal fuel'))
+            | .keccak512Hash resultCapacity inputCapacity input =>
+                .keccak512Hash resultCapacity inputCapacity (input.map (flipVal fuel'))
+            | .ripemd160Hash resultCapacity inputCapacity input =>
+                .ripemd160Hash resultCapacity inputCapacity (input.map (flipVal fuel'))
+            | .ecrecover resultCapacity hash sig v malleability =>
+                .ecrecover resultCapacity (hash.map (flipVal fuel'))
+                  (sig.map (flipVal fuel')) (flipVal fuel' v) (flipVal fuel' malleability)
+            | .ed25519Verify resultCapacity sig msg pk =>
+                .ed25519Verify resultCapacity (sig.map (flipVal fuel'))
+                  (msg.map (flipVal fuel')) (pk.map (flipVal fuel'))
             | .reserved => .reserved))
       | .forAccum n v resultLocal => .forAccum n (flipVal fuel' v) resultLocal
       | .forBody n body => .forBody n (body.map (flipOp fuel'))

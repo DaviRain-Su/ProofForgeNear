@@ -293,6 +293,102 @@ private partial def asValNamed (env : Environment) (fuel : Nat) (n : Name) (e : 
     some .nearStorageResultNearTokenW0Strict
   else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.storageResultNearTokenW1Strict then
     some .nearStorageResultNearTokenW1Strict
+  else if e.getAppArgs.size ≥ 1 &&
+      (isConstNamed e ``ProofForge.Wasm.Near.Runtime.sha256ResultW0 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.sha256ResultW1 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.sha256ResultW2 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.sha256ResultW3 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak256ResultW0 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak256ResultW1 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak256ResultW2 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak256ResultW3 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW0 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW1 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW2 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW3 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW4 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW5 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW6 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW7 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.ripemd160ResultW0 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.ripemd160ResultW1 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.ripemd160ResultW2 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverStatus ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW0 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW1 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW2 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW3 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW4 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW5 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW6 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW7 ||
+        isConstNamed e ``ProofForge.Wasm.Near.Runtime.ed25519VerifyOk) then
+    let args := e.getAppArgs
+    let capacityExpr := unfoldUserHelpers env 8 args[args.size - 1]!
+    match asStaticLit env fuel capacityExpr with
+    | some (.lit capacity) =>
+        let capacity := capacity.toNat
+        if ProofForge.Wasm.Near.Codec.storageCapacityValid capacity then
+          if isConstNamed e ``ProofForge.Wasm.Near.Runtime.sha256ResultW0 then
+            some (.nearSha256ResultW0 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.sha256ResultW1 then
+            some (.nearSha256ResultW1 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.sha256ResultW2 then
+            some (.nearSha256ResultW2 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.sha256ResultW3 then
+            some (.nearSha256ResultW3 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak256ResultW0 then
+            some (.nearKeccak256ResultW0 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak256ResultW1 then
+            some (.nearKeccak256ResultW1 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak256ResultW2 then
+            some (.nearKeccak256ResultW2 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak256ResultW3 then
+            some (.nearKeccak256ResultW3 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW0 then
+            some (.nearKeccak512ResultW0 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW1 then
+            some (.nearKeccak512ResultW1 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW2 then
+            some (.nearKeccak512ResultW2 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW3 then
+            some (.nearKeccak512ResultW3 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW4 then
+            some (.nearKeccak512ResultW4 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW5 then
+            some (.nearKeccak512ResultW5 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW6 then
+            some (.nearKeccak512ResultW6 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512ResultW7 then
+            some (.nearKeccak512ResultW7 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ripemd160ResultW0 then
+            some (.nearRipemd160ResultW0 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ripemd160ResultW1 then
+            some (.nearRipemd160ResultW1 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ripemd160ResultW2 then
+            some (.nearRipemd160ResultW2 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverStatus then
+            some (.nearEcrecoverStatus capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW0 then
+            some (.nearEcrecoverResultW0 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW1 then
+            some (.nearEcrecoverResultW1 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW2 then
+            some (.nearEcrecoverResultW2 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW3 then
+            some (.nearEcrecoverResultW3 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW4 then
+            some (.nearEcrecoverResultW4 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW5 then
+            some (.nearEcrecoverResultW5 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW6 then
+            some (.nearEcrecoverResultW6 capacity)
+          else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecoverResultW7 then
+            some (.nearEcrecoverResultW7 capacity)
+          else
+            some (.nearEd25519VerifyOk capacity)
+        else none
+    | _ => none
   else if (isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseResultStatus ||
       isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseResultLength ||
       isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseResultFits) &&
@@ -2544,6 +2640,26 @@ private def nearBoundedMessage64Frame? (env : Environment) (e : Expr) : Option (
   let w7 ← val env (mkApp (mkConst ``ProofForge.Wasm.Near.Runtime.BoundedMessage64.w7) e)
   return #[length, w0, w1, w2, w3, w4, w5, w6, w7]
 
+private def nearCryptoBytes32Frame? (env : Environment) (e : Expr) : Option (Array Ops.Val) := do
+  let e := substLets 32 (strip (unfoldUserHelpers env 8 e))
+  let w0 ← val env (mkApp (mkConst ``ProofForge.Wasm.Near.Runtime.CryptoBytes32.w0) e)
+  let w1 ← val env (mkApp (mkConst ``ProofForge.Wasm.Near.Runtime.CryptoBytes32.w1) e)
+  let w2 ← val env (mkApp (mkConst ``ProofForge.Wasm.Near.Runtime.CryptoBytes32.w2) e)
+  let w3 ← val env (mkApp (mkConst ``ProofForge.Wasm.Near.Runtime.CryptoBytes32.w3) e)
+  return #[w0, w1, w2, w3]
+
+private def nearCryptoBytes64Frame? (env : Environment) (e : Expr) : Option (Array Ops.Val) := do
+  let e := substLets 32 (strip (unfoldUserHelpers env 8 e))
+  let w0 ← val env (mkApp (mkConst ``ProofForge.Wasm.Near.Runtime.CryptoBytes64.w0) e)
+  let w1 ← val env (mkApp (mkConst ``ProofForge.Wasm.Near.Runtime.CryptoBytes64.w1) e)
+  let w2 ← val env (mkApp (mkConst ``ProofForge.Wasm.Near.Runtime.CryptoBytes64.w2) e)
+  let w3 ← val env (mkApp (mkConst ``ProofForge.Wasm.Near.Runtime.CryptoBytes64.w3) e)
+  let w4 ← val env (mkApp (mkConst ``ProofForge.Wasm.Near.Runtime.CryptoBytes64.w4) e)
+  let w5 ← val env (mkApp (mkConst ``ProofForge.Wasm.Near.Runtime.CryptoBytes64.w5) e)
+  let w6 ← val env (mkApp (mkConst ``ProofForge.Wasm.Near.Runtime.CryptoBytes64.w6) e)
+  let w7 ← val env (mkApp (mkConst ``ProofForge.Wasm.Near.Runtime.CryptoBytes64.w7) e)
+  return #[w0, w1, w2, w3, w4, w5, w6, w7]
+
 private partial def staticAccountTokenTag? (env : Environment) (fuel : Nat) (e : Expr) : Option Nat :=
   staticNatVal? env e <|>
     match fuel, strip e with
@@ -2633,6 +2749,12 @@ partial def mentionsNearEffect (env : Environment) : Nat → Expr → Bool
         name == ``ProofForge.Wasm.Near.Runtime.storageWrite ||
         name == ``ProofForge.Wasm.Near.Runtime.storageRemove ||
         name == ``ProofForge.Wasm.Near.Runtime.storageHasKey ||
+        name == ``ProofForge.Wasm.Near.Runtime.sha256Hash ||
+        name == ``ProofForge.Wasm.Near.Runtime.keccak256Hash ||
+        name == ``ProofForge.Wasm.Near.Runtime.keccak512Hash ||
+        name == ``ProofForge.Wasm.Near.Runtime.ripemd160Hash ||
+        name == ``ProofForge.Wasm.Near.Runtime.ecrecover ||
+        name == ``ProofForge.Wasm.Near.Runtime.ed25519Verify ||
         name == ``ProofForge.Wasm.Near.Runtime.accountNearTokenRead ||
         name == ``ProofForge.Wasm.Near.Runtime.accountNearTokenWrite ||
         name == ``ProofForge.Wasm.Near.Runtime.accountNearTokenRemove ||
@@ -4770,6 +4892,55 @@ private def decodeNearEffect (env : Environment) (e : Expr) : Option (Array Ops.
               some (.nearStorageWrite 16 72 16
                 (accountTokenStorageKeyFrame (.lit (UInt64.ofNat tag)) account)
                 (nearTokenStorageValueFrame lo hi))
+            else none
+        | _, _, _, _ => none
+      else if (isConstNamed e ``ProofForge.Wasm.Near.Runtime.sha256Hash ||
+          isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak256Hash ||
+          isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512Hash ||
+          isConstNamed e ``ProofForge.Wasm.Near.Runtime.ripemd160Hash) &&
+          e.getAppArgs.size ≥ 3 then
+        let args := e.getAppArgs
+        match staticNatVal? env args[args.size - 3]!,
+            staticNatVal? env args[args.size - 2]! with
+        | some resultCapacity, some inputCapacity =>
+            if ProofForge.Wasm.Near.Codec.storageCapacityValid resultCapacity &&
+                ProofForge.Wasm.Near.Codec.storageCapacityValid inputCapacity then
+              (boundedStorageFrame? env inputCapacity args[args.size - 1]!).map fun input =>
+                if isConstNamed e ``ProofForge.Wasm.Near.Runtime.sha256Hash then
+                  .nearSha256Hash resultCapacity inputCapacity input
+                else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak256Hash then
+                  .nearKeccak256Hash resultCapacity inputCapacity input
+                else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.keccak512Hash then
+                  .nearKeccak512Hash resultCapacity inputCapacity input
+                else
+                  .nearRipemd160Hash resultCapacity inputCapacity input
+            else none
+        | _, _ => none
+      else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ecrecover &&
+          e.getAppArgs.size ≥ 5 then
+        let args := e.getAppArgs
+        match staticNatVal? env args[args.size - 5]!,
+            nearCryptoBytes32Frame? env args[args.size - 4]!,
+            nearCryptoBytes64Frame? env args[args.size - 3]!,
+            val env args[args.size - 2]!,
+            val env args[args.size - 1]! with
+        | some resultCapacity, some hash, some sig, some v, some malleability =>
+            if resultCapacity == 64 && hash.size == 4 && sig.size == 8 then
+              some (.nearEcrecover resultCapacity hash sig v malleability)
+            else none
+        | _, _, _, _, _ => none
+      else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.ed25519Verify &&
+          e.getAppArgs.size ≥ 5 then
+        let args := e.getAppArgs
+        match staticNatVal? env args[args.size - 5]!,
+            staticNatVal? env args[args.size - 4]!,
+            nearCryptoBytes64Frame? env args[args.size - 3]!,
+            nearCryptoBytes32Frame? env args[args.size - 1]! with
+        | some resultCapacity, some msgCapacity, some sig, some pk =>
+            if resultCapacity == 8 &&
+                ProofForge.Wasm.Near.Codec.storageCapacityValid msgCapacity then
+              (boundedStorageFrame? env msgCapacity args[args.size - 2]!).map fun msg =>
+                .nearEd25519Verify resultCapacity sig msg pk
             else none
         | _, _, _, _ => none
       else if (isConstNamed e ``ProofForge.Wasm.Near.Runtime.accountNearTokenRead ||

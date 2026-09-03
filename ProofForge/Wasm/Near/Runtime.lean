@@ -137,6 +137,26 @@ byte-vector or JSON-string encoder. -/
   w3 : UInt64
   deriving Repr, DecidableEq, Inhabited, BEq
 
+/-- Fixed 32-byte little-endian packed crypto input (digest or ed25519 public key). -/
+@[pf_boundary] structure CryptoBytes32 where
+  w0 : UInt64
+  w1 : UInt64
+  w2 : UInt64
+  w3 : UInt64
+  deriving Repr, DecidableEq, Inhabited, BEq
+
+/-- Fixed 64-byte little-endian packed crypto input (signature or recovered public key). -/
+@[pf_boundary] structure CryptoBytes64 where
+  w0 : UInt64
+  w1 : UInt64
+  w2 : UInt64
+  w3 : UInt64
+  w4 : UInt64
+  w5 : UInt64
+  w6 : UInt64
+  w7 : UInt64
+  deriving Repr, DecidableEq, Inhabited, BEq
+
 /-- Exact 70-leaf bounded NEP-148 metadata output carrier: name9 + symbol3 + icon34 + reference18,
 plus hash5 and decimals1. Option presence and packed inactive bytes are validated by the target codec.
 The serializer does not automatically apply near-contract-standards' optional `assert_valid`. -/
@@ -1223,6 +1243,87 @@ avoids treating inactive AccountId carrier lanes as identity bytes.
 present malformed/oversized values trap in the target instead of exposing partial/stale data. -/
 @[irreducible] def storageResultNearTokenW0Strict : UInt64 := 0
 @[irreducible] def storageResultNearTokenW1Strict : UInt64 := 0
+
+/-!
+View-safe cryptographic host leaves. Hash ops write the host digest into a dedicated
+register, then the emitter copies it into one invocation-local arena result frame.
+Result windows are little-endian `UInt64` packs of those bytes (same convention as
+account-id / predecessor). `ecrecover` failure is fail-closed: `status ≠ 0` and every
+limb is zero, so stale register bytes cannot escape. `ed25519_verify` returns host
+`0/1` directly into the result frame and never writes a register.
+-/
+
+@[irreducible] def sha256Hash (resultCapacity inputCapacity : Nat)
+    (input : ProofForge.Core.Value.BoundedBytes inputCapacity) : UInt64 :=
+  let _ := resultCapacity
+  let _ := input
+  0
+
+@[irreducible] def keccak256Hash (resultCapacity inputCapacity : Nat)
+    (input : ProofForge.Core.Value.BoundedBytes inputCapacity) : UInt64 :=
+  let _ := resultCapacity
+  let _ := input
+  0
+
+@[irreducible] def keccak512Hash (resultCapacity inputCapacity : Nat)
+    (input : ProofForge.Core.Value.BoundedBytes inputCapacity) : UInt64 :=
+  let _ := resultCapacity
+  let _ := input
+  0
+
+@[irreducible] def ripemd160Hash (resultCapacity inputCapacity : Nat)
+    (input : ProofForge.Core.Value.BoundedBytes inputCapacity) : UInt64 :=
+  let _ := resultCapacity
+  let _ := input
+  0
+
+@[irreducible] def ecrecover (resultCapacity : Nat)
+    (hash : CryptoBytes32) (sig : CryptoBytes64) (v malleability : UInt64) : UInt64 :=
+  let _ := resultCapacity
+  let _ := hash
+  let _ := sig
+  let _ := v
+  let _ := malleability
+  0
+
+@[irreducible] def ed25519Verify (resultCapacity msgCapacity : Nat)
+    (sig : CryptoBytes64) (msg : ProofForge.Core.Value.BoundedBytes msgCapacity)
+    (pk : CryptoBytes32) : UInt64 :=
+  let _ := resultCapacity
+  let _ := sig
+  let _ := msg
+  let _ := pk
+  0
+
+@[irreducible] def sha256ResultW0 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def sha256ResultW1 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def sha256ResultW2 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def sha256ResultW3 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def keccak256ResultW0 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def keccak256ResultW1 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def keccak256ResultW2 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def keccak256ResultW3 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def keccak512ResultW0 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def keccak512ResultW1 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def keccak512ResultW2 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def keccak512ResultW3 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def keccak512ResultW4 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def keccak512ResultW5 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def keccak512ResultW6 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def keccak512ResultW7 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def ripemd160ResultW0 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def ripemd160ResultW1 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def ripemd160ResultW2 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def ecrecoverStatus (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def ecrecoverResultW0 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def ecrecoverResultW1 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def ecrecoverResultW2 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def ecrecoverResultW3 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def ecrecoverResultW4 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def ecrecoverResultW5 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def ecrecoverResultW6 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def ecrecoverResultW7 (capacity : Nat) : UInt64 := let _ := capacity; 0
+@[irreducible] def ed25519VerifyOk (capacity : Nat) : UInt64 := let _ := capacity; 0
 
 /--
 `current_account_id` as the first 8 bytes of the UTF-8 account id,

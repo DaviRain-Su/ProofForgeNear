@@ -10,7 +10,8 @@
 `panic_utf8` / `promise_batch_create` / `promise_and` / `promise_batch_then` /
 `promise_batch_action_function_call` / `promise_batch_action_function_call_weight` /
 `promise_batch_action_transfer` / `promise_return` /
-`promise_results_count` / `promise_result`，按程序条件裁剪），组装器是锁定的
+`promise_results_count` / `promise_result` / `sha256` / `keccak256` /
+`keccak512` / `ripemd160` / `ecrecover` / `ed25519_verify`，按程序条件裁剪），组装器是锁定的
 `wat2wasm 1.0.41`。外来叶子 fail closed。
 
 基础标量绑定历史仓 proof_forge 的 profile `near-wasm-raw-u64-v1`：这**不是** JSON
@@ -368,11 +369,14 @@ non-payable、零参数且每个程序最多一个。wrapper 只接受 exact old
   envelope，随后重复初始化与算术场景照常通过；同一 gate 还部署双字段升级代码，验证旧
   envelope 令 ordinary view fail closed、外部 migration 被 private guard 拒绝、同账户按
   `value` old key 转换后得到 exact 新字段/envelope、重复 migration 失败且新版本继续可写。
+  `crypto.sh` 验证 view-safe `sha256`/`keccak256`/`ripemd160` 对 `"abc"` 的已知向量、
+  mutating `keccak512` 前 8 字节、`ecrecover` 恢复 64 字节公钥，以及沙箱账户密钥的
+  `ed25519_verify` 正反（篡改消息为 0）。哈希窗口一律小端；ecrecover 失败 status≠0 且 limbs 清零。
 
 CLI：`pf build --target near`。当前注册 `Counter`、`NearCtx`、`NearBytes`、
 `NearFungibleTokenEvent`、`NearTokenArithmetic`、`NearTokenStorage`、`NearMemory`、
 `NearOutput`、`NearStorageBalanceOutput`、`NearStorageBalanceBoundsOutput`、`NearJsonUnitOutput`、`NearJsonU128Mutation`、`NearJsonAccountInput`、`NearJsonAmountInput`、`NearJsonMemoInput`、`NearJsonFtTransferInput`、`NearJsonFtOnTransferInput`、`NearFtReceiverValue`、`NearPromiseOrValue`、`NearFtReceiverDual`、`NearJsonFtResolveInput`、`NearStorage`、`NearStorageEconomics`、`NearVector`、`NearLookup`、`NearQueue`、`NearIterable`、
-`NearPromise`、`NearPromiseResult`、`NearMigration`。
+`NearPromise`、`NearPromiseResult`、`NearMigration`、`NearSigner`、`NearCrypto`。
 
 `NearOutput` 还包含 diagnostic-only 的 bounded NEP-148 metadata object 输出：固定字段顺序
 `spec,name,symbol,icon,reference,reference_hash,decimals`，Option 显式 `null`，32-byte hash

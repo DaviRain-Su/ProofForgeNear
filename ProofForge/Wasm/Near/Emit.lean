@@ -73,6 +73,8 @@ private def signerAccountReg : Nat := 6
 private def signerPkReg : Nat := 7
 /-- Random-seed register (32 bytes). -/
 private def randomSeedReg : Nat := 8
+/-- Dedicated crypto digest/signature register; disjoint from storage/callback/context. -/
+private def cryptoReg : Nat := 9
 
 private def panicOverflowOff : Nat := 2048
 private def panicDivOff : Nat := 2057
@@ -188,7 +190,10 @@ private partial def logsOfOps (ops : Array (Op ValKind OpExt)) : Array String :=
       | .ext (.storageRead _ _ _)
       | .ext (.storageWrite _ _ _ _ _)
       | .ext (.storageRemove _ _ _)
-      | .ext (.storageHasKey _ _ _) => #[]
+      | .ext (.storageHasKey _ _ _)
+      | .ext (.sha256Hash _ _ _) | .ext (.keccak256Hash _ _ _)
+      | .ext (.keccak512Hash _ _ _) | .ext (.ripemd160Hash _ _ _)
+      | .ext (.ecrecover _ _ _ _ _) | .ext (.ed25519Verify _ _ _ _) => #[]
       | .ite _ _ _ thn els => logsOfOps thn ++ logsOfOps els
       | .forBody _ body => logsOfOps body
       | _ => #[]
@@ -230,6 +235,19 @@ private partial def hasFtEventOps (ops : Array (Op ValKind OpExt)) : Bool :=
 
 private def programHasFtEvent (p : Program ValKind OpExt) : Bool :=
   hasFtEventOps p.initializer.ops || p.entries.any (hasFtEventOps ·.ops)
+
+/-- Whether any method in the program contains an `OpExt` matching the predicate. -/
+private partial def hasOpExt (pred : OpExt (Val ValKind) → Bool)
+    (ops : Array (Op ValKind OpExt)) : Bool :=
+  ops.any fun
+    | .ext payload => pred payload
+    | .ite _ _ _ thn els => hasOpExt pred thn || hasOpExt pred els
+    | .forBody _ body => hasOpExt pred body
+    | _ => false
+
+private def programHasOpExt (pred : OpExt (Val ValKind) → Bool)
+    (p : Program ValKind OpExt) : Bool :=
+  hasOpExt pred p.initializer.ops || p.entries.any (hasOpExt pred ·.ops)
 
 private def logLayout (p : Program ValKind OpExt) : Array (String × Nat × Nat) :=
   (logMessages p).foldl (init := #[]) fun layout message =>
@@ -695,6 +713,64 @@ private partial def renderVal (st : EState) (v : Val ValKind) : Except String St
       unless capacity == 41 do
         throw "extract/unsupported: quoted-u128 Promise result requires capacity 41"
       return "(call $pf_promise_result_quoted_u128 (i64.const 41) (i64.const 2))"
+  | .ext (.sha256ResultW0 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 0))")
+  | .ext (.sha256ResultW1 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 1))")
+  | .ext (.sha256ResultW2 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 2))")
+  | .ext (.sha256ResultW3 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 3))")
+  | .ext (.keccak256ResultW0 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 0))")
+  | .ext (.keccak256ResultW1 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 1))")
+  | .ext (.keccak256ResultW2 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 2))")
+  | .ext (.keccak256ResultW3 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 3))")
+  | .ext (.keccak512ResultW0 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 0))")
+  | .ext (.keccak512ResultW1 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 1))")
+  | .ext (.keccak512ResultW2 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 2))")
+  | .ext (.keccak512ResultW3 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 3))")
+  | .ext (.keccak512ResultW4 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 4))")
+  | .ext (.keccak512ResultW5 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 5))")
+  | .ext (.keccak512ResultW6 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 6))")
+  | .ext (.keccak512ResultW7 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 7))")
+  | .ext (.ripemd160ResultW0 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 0))")
+  | .ext (.ripemd160ResultW1 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 1))")
+  | .ext (.ripemd160ResultW2 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 2))")
+  | .ext (.ecrecoverStatus capacity) #[] =>
+      .ok ("(call $pf_crypto_result_status (i64.const " ++ toString capacity ++ "))")
+  | .ext (.ecrecoverResultW0 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 0))")
+  | .ext (.ecrecoverResultW1 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 1))")
+  | .ext (.ecrecoverResultW2 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 2))")
+  | .ext (.ecrecoverResultW3 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 3))")
+  | .ext (.ecrecoverResultW4 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 4))")
+  | .ext (.ecrecoverResultW5 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 5))")
+  | .ext (.ecrecoverResultW6 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 6))")
+  | .ext (.ecrecoverResultW7 capacity) #[] =>
+      .ok ("(call $pf_crypto_result_word (i64.const " ++ toString capacity ++ ") (i64.const 7))")
+  | .ext (.ed25519VerifyOk capacity) #[] =>
+      .ok ("(call $pf_crypto_result_ok (i64.const " ++ toString capacity ++ "))")
   | .local index => .ok ("(local.get " ++ localOfSource index ++ ")")
   | .ext kind operands =>
       .error s!"extract/unsupported: near v0 value extension {repr kind}/{operands.size}"
@@ -1276,6 +1352,64 @@ private def stageStorageFrame (st : EState) (capacity : Nat)
   let pointer := "(local.get " ++ pointerLocal ++ ")"
   let length := "(local.get " ++ lengthLocal ++ ")"
   return { lines := lines, pointer := pointer, length := length, st := st' }
+
+private def stagePackedWords (st : EState) (values : Array (Val ValKind))
+    (byteLength level : Nat) : Except String StagedStorageFrame := do
+  unless values.size * 8 == byteLength do
+    throw "extract/unsupported: near crypto packed frame geometry"
+  let pointerLocal := localOfTemp st.fresh
+  let st' := { st with fresh := st.fresh + 1 }
+  let mut lines := #[
+    indent level ("(local.set " ++ pointerLocal ++
+      " (i64.extend_i32_u (call $pf_arena_alloc (i64.const " ++ toString byteLength ++
+      ") (i64.const 8))))")
+  ]
+  for index in [0:values.size] do
+    let value ← renderVal st values[index]!
+    lines := lines.push (indent level
+      ("(i64.store (i32.add (i32.wrap_i64 (local.get " ++ pointerLocal ++
+        ")) (i32.const " ++ toString (index * 8) ++ ")) " ++ value ++ ")"))
+  return {
+    lines := lines
+    pointer := "(local.get " ++ pointerLocal ++ ")"
+    length := "(i64.const " ++ toString byteLength ++ ")"
+    st := st'
+  }
+
+private def resetCryptoResult (capacity level : Nat) : Array String := #[
+  indent level "(global.set $pf_crypto_result_active (i32.const 1))",
+  indent level ("(global.set $pf_crypto_result_capacity (i64.const " ++
+    toString capacity ++ "))"),
+  indent level "(global.set $pf_crypto_result_status (i64.const 0))",
+  indent level "(global.set $pf_crypto_result_length (i64.const 0))",
+  indent level "(global.set $pf_crypto_result_ptr (i32.const 0))"
+]
+
+private def finishCryptoHash (expectedBytes level : Nat) : Array String := #[
+  indent level ("(call $pf_crypto_copy_register (i64.const " ++
+    toString expectedBytes ++ ") (i64.const " ++ toString cryptoReg ++ "))")
+]
+
+private def finishEcrecover (level : Nat) (hostStatus : String) : Array String := #[
+  indent level ("(global.set $pf_crypto_result_status " ++ hostStatus ++ ")"),
+  indent level "(if (i64.gt_u (global.get $pf_crypto_result_status) (i64.const 1))",
+  indent (level + 2) "(then unreachable))",
+  indent level "(if (i64.eqz (global.get $pf_crypto_result_status))",
+  indent (level + 2) "(then",
+  indent (level + 4) "(global.set $pf_crypto_result_status (i64.const 1)))",
+  indent (level + 2) "(else",
+  indent (level + 4) "(global.set $pf_crypto_result_status (i64.const 0))",
+  indent (level + 4) ("(call $pf_crypto_copy_register (i64.const 64) (i64.const " ++
+    toString cryptoReg ++ "))"),
+  indent (level + 2) "))"
+]
+
+private def finishEd25519 (level : Nat) (hostOk : String) : Array String := #[
+  indent level ("(global.set $pf_crypto_result_status " ++ hostOk ++ ")"),
+  indent level "(if (i64.gt_u (global.get $pf_crypto_result_status) (i64.const 1))",
+  indent (level + 2) "(then unreachable))",
+  indent level "(call $pf_crypto_store_ok)"
+]
 
 private structure StagedEvent where
   lines : Array String
@@ -2658,6 +2792,75 @@ private partial def emitRegion (p : Program ValKind OpExt)
           finishStorageResult resultCapacity status none level
         let region ← emitRegion p outputPlan view echo level defaultSlot tail staged.st
         return { lines := lines ++ region.lines, st := region.st, terminal := region.terminal }
+    | .ext (.sha256Hash resultCapacity inputCapacity input) =>
+        unless resultCapacity == 32 do
+          throw "extract/unsupported: sha256 result capacity must be 32"
+        let staged ← stageStorageFrame st inputCapacity input level
+        let lines := staged.lines ++ resetCryptoResult resultCapacity level ++ #[
+          indent level ("(call $pf_sha256 " ++ staged.length ++ " " ++ staged.pointer ++
+            " (i64.const " ++ toString cryptoReg ++ "))")
+        ] ++ finishCryptoHash 32 level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail staged.st
+        return { lines := lines ++ region.lines, st := region.st, terminal := region.terminal }
+    | .ext (.keccak256Hash resultCapacity inputCapacity input) =>
+        unless resultCapacity == 32 do
+          throw "extract/unsupported: keccak256 result capacity must be 32"
+        let staged ← stageStorageFrame st inputCapacity input level
+        let lines := staged.lines ++ resetCryptoResult resultCapacity level ++ #[
+          indent level ("(call $pf_keccak256 " ++ staged.length ++ " " ++ staged.pointer ++
+            " (i64.const " ++ toString cryptoReg ++ "))")
+        ] ++ finishCryptoHash 32 level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail staged.st
+        return { lines := lines ++ region.lines, st := region.st, terminal := region.terminal }
+    | .ext (.keccak512Hash resultCapacity inputCapacity input) =>
+        unless resultCapacity == 64 do
+          throw "extract/unsupported: keccak512 result capacity must be 64"
+        let staged ← stageStorageFrame st inputCapacity input level
+        let lines := staged.lines ++ resetCryptoResult resultCapacity level ++ #[
+          indent level ("(call $pf_keccak512 " ++ staged.length ++ " " ++ staged.pointer ++
+            " (i64.const " ++ toString cryptoReg ++ "))")
+        ] ++ finishCryptoHash 64 level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail staged.st
+        return { lines := lines ++ region.lines, st := region.st, terminal := region.terminal }
+    | .ext (.ripemd160Hash resultCapacity inputCapacity input) =>
+        unless resultCapacity == 20 do
+          throw "extract/unsupported: ripemd160 result capacity must be 20"
+        let staged ← stageStorageFrame st inputCapacity input level
+        let lines := staged.lines ++ resetCryptoResult resultCapacity level ++ #[
+          indent level ("(call $pf_ripemd160 " ++ staged.length ++ " " ++ staged.pointer ++
+            " (i64.const " ++ toString cryptoReg ++ "))")
+        ] ++ finishCryptoHash 20 level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail staged.st
+        return { lines := lines ++ region.lines, st := region.st, terminal := region.terminal }
+    | .ext (.ecrecover resultCapacity hash sig v malleability) =>
+        unless resultCapacity == 64 do
+          throw "extract/unsupported: ecrecover result capacity must be 64"
+        let stagedHash ← stagePackedWords st hash 32 level
+        let stagedSig ← stagePackedWords stagedHash.st sig 64 level
+        let vExpr ← renderVal stagedSig.st v
+        let malExpr ← renderVal stagedSig.st malleability
+        let status := "(call $pf_ecrecover " ++ stagedHash.length ++ " " ++ stagedHash.pointer ++
+          " " ++ stagedSig.length ++ " " ++ stagedSig.pointer ++ " " ++ vExpr ++ " " ++ malExpr ++
+          " (i64.const " ++ toString cryptoReg ++ "))"
+        let lines := stagedHash.lines ++ stagedSig.lines ++ resetCryptoResult resultCapacity level ++
+          finishEcrecover level status
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail stagedSig.st
+        return { lines := lines ++ region.lines, st := region.st, terminal := region.terminal }
+    | .ext (.ed25519Verify resultCapacity sig msg pk) =>
+        unless resultCapacity == 8 do
+          throw "extract/unsupported: ed25519_verify result capacity must be 8"
+        unless 1 ≤ msg.size do
+          throw "extract/unsupported: ed25519_verify message frame"
+        let stagedSig ← stagePackedWords st sig 64 level
+        let stagedMsg ← stageStorageFrame stagedSig.st (msg.size - 1) msg level
+        let stagedPk ← stagePackedWords stagedMsg.st pk 32 level
+        let ok := "(call $pf_ed25519_verify " ++ stagedSig.length ++ " " ++ stagedSig.pointer ++
+          " " ++ stagedMsg.length ++ " " ++ stagedMsg.pointer ++
+          " " ++ stagedPk.length ++ " " ++ stagedPk.pointer ++ ")"
+        let lines := stagedSig.lines ++ stagedMsg.lines ++ stagedPk.lines ++
+          resetCryptoResult resultCapacity level ++ finishEd25519 level ok
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail stagedPk.st
+        return { lines := lines ++ region.lines, st := region.st, terminal := region.terminal }
     | .returnU64 value =>
         unless view || outputPlan == some .jsonU128 || outputPlan == some .promiseOrJsonU128 ||
             outputPlan == some .jsonStorageBalanceOption || outputPlan == some .jsonBoolean do
@@ -2860,6 +3063,12 @@ private partial def usesKind (kind : ValKind) : Op ValKind OpExt → Bool
       | .transientBuffer64Set _ index value => valHas index || valHas value
       | .storageRead _ _ key | .storageRemove _ _ key | .storageHasKey _ _ key => key.any valHas
       | .storageWrite _ _ _ key value => key.any valHas || value.any valHas
+      | .sha256Hash _ _ input | .keccak256Hash _ _ input
+      | .keccak512Hash _ _ input | .ripemd160Hash _ _ input => input.any valHas
+      | .ecrecover _ hash sig v malleability =>
+          hash.any valHas || sig.any valHas || valHas v || valHas malleability
+      | .ed25519Verify _ sig msg pk =>
+          sig.any valHas || msg.any valHas || pk.any valHas
   | _ => false
 where
   valHas : Val ValKind → Bool
@@ -3081,7 +3290,23 @@ private partial def valUsesArena : Val ValKind → Bool
   | .ext (.promiseResultBorshUInt64D _) _
   | .ext (.promiseResultQuotedU128Valid _) _
   | .ext (.promiseResultQuotedU128W0 _) _
-  | .ext (.promiseResultQuotedU128W1 _) _ => true
+  | .ext (.promiseResultQuotedU128W1 _) _
+  | .ext (.sha256ResultW0 _) _ | .ext (.sha256ResultW1 _) _
+  | .ext (.sha256ResultW2 _) _ | .ext (.sha256ResultW3 _) _
+  | .ext (.keccak256ResultW0 _) _ | .ext (.keccak256ResultW1 _) _
+  | .ext (.keccak256ResultW2 _) _ | .ext (.keccak256ResultW3 _) _
+  | .ext (.keccak512ResultW0 _) _ | .ext (.keccak512ResultW1 _) _
+  | .ext (.keccak512ResultW2 _) _ | .ext (.keccak512ResultW3 _) _
+  | .ext (.keccak512ResultW4 _) _ | .ext (.keccak512ResultW5 _) _
+  | .ext (.keccak512ResultW6 _) _ | .ext (.keccak512ResultW7 _) _
+  | .ext (.ripemd160ResultW0 _) _ | .ext (.ripemd160ResultW1 _) _
+  | .ext (.ripemd160ResultW2 _) _
+  | .ext (.ecrecoverStatus _) _
+  | .ext (.ecrecoverResultW0 _) _ | .ext (.ecrecoverResultW1 _) _
+  | .ext (.ecrecoverResultW2 _) _ | .ext (.ecrecoverResultW3 _) _
+  | .ext (.ecrecoverResultW4 _) _ | .ext (.ecrecoverResultW5 _) _
+  | .ext (.ecrecoverResultW6 _) _ | .ext (.ecrecoverResultW7 _) _
+  | .ext (.ed25519VerifyOk _) _ => true
   | .ext _ operands => operands.any valUsesArena
   | .field base _ | .bitNot base => valUsesArena base
   | .bitAnd lhs rhs | .bitOr lhs rhs | .bitXor lhs rhs
@@ -3100,7 +3325,10 @@ private partial def opUsesArena : Op ValKind OpExt → Bool
   | .ext (.storageRead _ _ _)
   | .ext (.storageWrite _ _ _ _ _)
   | .ext (.storageRemove _ _ _)
-  | .ext (.storageHasKey _ _ _) => true
+  | .ext (.storageHasKey _ _ _)
+  | .ext (.sha256Hash _ _ _) | .ext (.keccak256Hash _ _ _)
+  | .ext (.keccak512Hash _ _ _) | .ext (.ripemd160Hash _ _ _)
+  | .ext (.ecrecover _ _ _ _ _) | .ext (.ed25519Verify _ _ _ _) => true
   | .ext (.promiseFunctionCallDetached _ _ _ _ _ _ _) => true
   | .ext (.promiseFunctionCallReturned _ _ _ _ _ _ _) => true
   | .ext (.promiseTransferDetached _ _ _)
@@ -4019,6 +4247,11 @@ private def arenaHelpers (p : Program ValKind OpExt) : Array String :=
     "  (global $pf_promise_result_length (mut i64) (i64.const 0))",
     "  (global $pf_promise_result_fits (mut i64) (i64.const 1))",
     "  (global $pf_promise_result_active (mut i32) (i32.const 0))",
+    "  (global $pf_crypto_result_ptr (mut i32) (i32.const 0))",
+    "  (global $pf_crypto_result_capacity (mut i64) (i64.const 0))",
+    "  (global $pf_crypto_result_status (mut i64) (i64.const 0))",
+    "  (global $pf_crypto_result_length (mut i64) (i64.const 0))",
+    "  (global $pf_crypto_result_active (mut i32) (i32.const 0))",
     "  (func $pf_arena_reset",
     "    (global.set $pf_arena_cursor (i64.const " ++ toString base ++ "))",
     "    (global.set $pf_buffer64_ptr (i32.const 0))",
@@ -4035,7 +4268,12 @@ private def arenaHelpers (p : Program ValKind OpExt) : Array String :=
     "    (global.set $pf_promise_result_status (i64.const 0))",
     "    (global.set $pf_promise_result_length (i64.const 0))",
     "    (global.set $pf_promise_result_fits (i64.const 1))",
-    "    (global.set $pf_promise_result_active (i32.const 0)))",
+    "    (global.set $pf_promise_result_active (i32.const 0))",
+    "    (global.set $pf_crypto_result_ptr (i32.const 0))",
+    "    (global.set $pf_crypto_result_capacity (i64.const 0))",
+    "    (global.set $pf_crypto_result_status (i64.const 0))",
+    "    (global.set $pf_crypto_result_length (i64.const 0))",
+    "    (global.set $pf_crypto_result_active (i32.const 0)))",
     "  (func $pf_arena_alloc (param $bytes i64) (param $alignment i64) (result i32)",
     "    (local $mask i64) (local $pointer i64) (local $finish i64)",
     "    (local $current_pages i64) (local $current_bytes i64)",
@@ -4162,7 +4400,54 @@ private def arenaHelpers (p : Program ValKind OpExt) : Array String :=
     "          (i64.lt_u (local.get $index) (global.get $pf_promise_result_length))))",
     "      (then (i64.load8_u (i32.add (global.get $pf_promise_result_ptr)",
     "        (i32.wrap_i64 (local.get $index)))))",
-    "      (else (i64.const 0))))",
+      "      (else (i64.const 0))))",
+    "  (func $pf_crypto_result_check (param $capacity i64)",
+    "    (if (i32.eqz (global.get $pf_crypto_result_active)) (then unreachable))",
+    "    (if (i64.ne (local.get $capacity) (global.get $pf_crypto_result_capacity))",
+    "      (then unreachable)))",
+    "  (func $pf_crypto_copy_register (param $expected i64) (param $register i64)",
+    "    (local $len i64) (local $words i64) (local $i i64) (local $ptr i32)",
+    "    (local.set $len (call $pf_register_len (local.get $register)))",
+    "    (if (i64.ne (local.get $len) (local.get $expected)) (then unreachable))",
+    "    (local.set $words (i64.shr_u (i64.add (local.get $expected) (i64.const 7)) (i64.const 3)))",
+    "    (local.set $ptr (call $pf_arena_alloc (i64.shl (local.get $words) (i64.const 3)) (i64.const 8)))",
+    "    (loop $zero",
+    "      (if (i64.lt_u (local.get $i) (local.get $words))",
+    "        (then",
+    "          (i64.store (i32.add (local.get $ptr)",
+    "            (i32.wrap_i64 (i64.shl (local.get $i) (i64.const 3)))) (i64.const 0))",
+    "          (local.set $i (i64.add (local.get $i) (i64.const 1)))",
+    "          (br $zero))))",
+    "    (if (i64.ne (local.get $expected) (i64.const 0))",
+    "      (then (call $pf_read_register (local.get $register)",
+    "        (i64.extend_i32_u (local.get $ptr)))))",
+    "    (global.set $pf_crypto_result_ptr (local.get $ptr))",
+    "    (global.set $pf_crypto_result_length (local.get $expected)))",
+    "  (func $pf_crypto_store_ok",
+    "    (local $ptr i32)",
+    "    (local.set $ptr (call $pf_arena_alloc (i64.const 8) (i64.const 8)))",
+    "    (i64.store (local.get $ptr) (global.get $pf_crypto_result_status))",
+    "    (global.set $pf_crypto_result_ptr (local.get $ptr))",
+    "    (global.set $pf_crypto_result_length (i64.const 8)))",
+    "  (func $pf_crypto_result_status (param $capacity i64) (result i64)",
+    "    (call $pf_crypto_result_check (local.get $capacity))",
+    "    (global.get $pf_crypto_result_status))",
+    "  (func $pf_crypto_result_ok (param $capacity i64) (result i64)",
+    "    (call $pf_crypto_result_check (local.get $capacity))",
+    "    (if (result i64) (i32.eqz (global.get $pf_crypto_result_ptr))",
+    "      (then (i64.const 0))",
+    "      (else (i64.load (global.get $pf_crypto_result_ptr)))))",
+    "  (func $pf_crypto_result_word (param $capacity i64) (param $word i64) (result i64)",
+    "    (call $pf_crypto_result_check (local.get $capacity))",
+    "    (if (result i64) (i32.eqz (global.get $pf_crypto_result_ptr))",
+    "      (then (i64.const 0))",
+    "      (else",
+    "        (if (i64.ge_u (i64.shl (local.get $word) (i64.const 3))",
+    "            (i64.shl (i64.shr_u (i64.add (global.get $pf_crypto_result_length) (i64.const 7))",
+    "              (i64.const 3)) (i64.const 3)))",
+    "          (then unreachable))",
+    "        (i64.load (i32.add (global.get $pf_crypto_result_ptr)",
+    "          (i32.wrap_i64 (i64.shl (local.get $word) (i64.const 3))))))))",
     ""
   ]
 
@@ -5709,6 +5994,24 @@ def emit (p : IR.Program) : Except String String := do
   if randomSeedKinds.any (programUses · p) then
     lines := lines.push
       "  (import \"env\" \"random_seed\" (func $pf_random_seed (param i64)))"
+  if programHasOpExt (fun | .sha256Hash _ _ _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"sha256\" (func $pf_sha256 (param i64 i64 i64)))"
+  if programHasOpExt (fun | .keccak256Hash _ _ _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"keccak256\" (func $pf_keccak256 (param i64 i64 i64)))"
+  if programHasOpExt (fun | .keccak512Hash _ _ _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"keccak512\" (func $pf_keccak512 (param i64 i64 i64)))"
+  if programHasOpExt (fun | .ripemd160Hash _ _ _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"ripemd160\" (func $pf_ripemd160 (param i64 i64 i64)))"
+  if programHasOpExt (fun | .ecrecover _ _ _ _ _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"ecrecover\" (func $pf_ecrecover (param i64 i64 i64 i64 i64 i64 i64) (result i64)))"
+  if programHasOpExt (fun | .ed25519Verify _ _ _ _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"ed25519_verify\" (func $pf_ed25519_verify (param i64 i64 i64 i64 i64 i64) (result i64)))"
   lines := lines.push "  (memory (export \"memory\") 1)"
   lines := lines ++ dataSection p
   lines := lines ++ logData

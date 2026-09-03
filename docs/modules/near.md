@@ -267,6 +267,7 @@ non-payable、零参数且每个程序最多一个。wrapper 只接受 exact old
 | `Near.Sdk.Store.Lookup` | direct Identity UInt64 map/set key/value recipe、get/has/put/remove raw status | Map cache/flush/old-value API、custom hashers、generic K/V、iteration/cardinality |
 | `Near.Sdk.Fungible.Ledger/Registration` | exact/missing balance snapshots, checked ledger/transfer/resolver composition, measured caller register/unregister, and supply-integrated forced removal | generic public NEP-141/145 JSON ABI、arbitrary-account lifecycle、automatic registration enforcement |
 | `Near.Sdk.Promises` | static detached/returned function call、static/full-AccountId native transfer、child→self callback、两个有序 child join、bounded result descriptor、strict Borsh UInt64 fallback decode | dynamic handles、arbitrary-N/nested joins、generic Borsh |
+| `Near.Sdk.Hash` | view-safe `sha256`/`keccak256`/`keccak512`/`ripemd160` BoundedBytes 输入与 LE 结果窗口、`ecrecover` 32+64 帧及失败 status≠0/limbs 清零、`ed25519_verify` 直接 0/1 | 通用哈希 API、可变长签名、Ethereum 27/28 `v`、keccak=SHA3 |
 | `Near.IR` | registration、方言标签、target-owned bounded input/output frame 与 private/payable/migration policy binding | 程序形状、v0 子集、canonical 拼写（在 `Wasm.IR`） |
 | `Near.Emit` | `env` import、KV 8-byte LE + bounded raw storage、Borsh input/output、strict UTF-8、checked arena lowering | 其它链 Data-blob 发射器、Vector/Map host opcode |
 | `Near.Assemble` | 写 `{name}.wat`，调锁定 `wat2wasm 1.0.41` 出 `{name}.wasm` | rustc / cargo / near-sandbox |

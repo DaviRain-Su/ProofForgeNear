@@ -82,12 +82,12 @@ def keccak512W0 (_s : State) : Except Error (State × UInt64) :=
   { w0 := 0x0ea3b05fba4df22c, w1 := 0x9ee2b9c52a3be826
     w2 := 0x5e42a71f5c1e161b, w3 := 0x24988b9362330473 }
 
-/-- secp256k1 signature (r||s) for private key 1 over sha256("hello"). -/
+/-- secp256k1 signature (r||s) for private key 1 over sha256("hello"); recovery id v=1. -/
 @[pf_inline] def helloSig : CryptoBytes64 :=
-  { w0 := 0x61c265d351a76d26, w1 := 0x5a674c95643b52bd
-    w2 := 0x4522d234eda1aa95, w3 := 0xd4cb07ea0b9658ea
-    w4 := 0x084d3ea673186c96, w5 := 0x553ae661f367391e
-    w6 := 0x203d1218c4cfad73, w7 := 0xca01daff4fc844f5 }
+  { w0 := 0xf77c53ea350151c0, w1 := 0x16a46342e1294108
+    w2 := 0x9c3892490b0ddf3a, w3 := 0x6e3f71692d511ba2
+    w4 := 0x780db857186b5313, w5 := 0xdea1b30bf1acafd3
+    w6 := 0x35b8d2e4603f9624, w7 := 0xf309f07d14b3373f }
 
 /-- RFC 8032 test-1 public key. -/
 @[pf_inline] def rfcPk : CryptoBytes32 :=

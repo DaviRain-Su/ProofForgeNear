@@ -115,7 +115,7 @@ def main() -> None:
         raise AssertionError(f"keccak512W0 expected {k512_w0:#x}, got {got:#x}")
     print(f"nearcrypto: keccak512(abc)[:8]={k512[:8].hex()} LE w0 ok")
 
-    # secp256k1 priv=1, sha256("hello"), hardcoded r||s matching Examples.Near.NearCrypto.
+    # secp256k1 priv=1 = G; sha256("hello"); recovery id v=1 (nearcore 0..3, not 27/28).
     pub_words = [
         0xACBBDCF97E66BE79,
         0x070B87CE9562A055,
@@ -126,26 +126,17 @@ def main() -> None:
         0x195485A648B417FD,
         0xB8D410FB8FD0479C,
     ]
-    status0 = _call_u64(client, "ecrecoverStatus")
     status1 = _call_u64(client, "ecrecoverStatus1")
-    if status0 == 0:
-        w0 = _call_u64(client, "ecrecoverW0")
-        w7 = _call_u64(client, "ecrecoverW7")
-        tag = "v=0"
-    elif status1 == 0:
-        w0 = _call_u64(client, "ecrecoverW0v1")
-        w7 = _call_u64(client, "ecrecoverW7v1")
-        tag = "v=1"
-    else:
-        raise AssertionError(
-            f"ecrecover failed: status0={status0} status1={status1}"
-        )
+    if status1 != 0:
+        raise AssertionError(f"ecrecover v=1 expected status 0, got {status1}")
+    w0 = _call_u64(client, "ecrecoverW0v1")
+    w7 = _call_u64(client, "ecrecoverW7v1")
     if w0 != pub_words[0] or w7 != pub_words[7]:
         raise AssertionError(
-            f"ecrecover {tag} pubkey mismatch w0 {w0:#x} vs {pub_words[0]:#x}, "
+            f"ecrecover v=1 pubkey mismatch w0 {w0:#x} vs {pub_words[0]:#x}, "
             f"w7 {w7:#x} vs {pub_words[7]:#x}"
         )
-    print(f"nearcrypto: ecrecover {tag} recovered 64B pubkey windows ok")
+    print("nearcrypto: ecrecover v=1 recovered secp256k1 G 64B windows ok")
 
     ok = _call_u64(client, "ed25519Abc")
     if ok != 1:

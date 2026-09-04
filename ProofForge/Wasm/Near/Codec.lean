@@ -399,6 +399,7 @@ compiler-owned Boolean/StorageBalance/StorageBalanceBounds frames, and explicit 
 results; generic objects, arrays, nullable values, and strings remain absent. -/
 inductive OutputPlan where
   | borsh (plan : BorshOutputPlan)
+  | borshRecord (fields : Nat)
   | jsonU128
   | promiseOrJsonU128
   | jsonStorageBalanceOption
@@ -412,6 +413,7 @@ inductive OutputPlan where
 
 def OutputPlan.sourceValueCount : OutputPlan → Nat
   | .borsh plan => plan.sourceValueCount
+  | .borshRecord fields => fields
   | .jsonU128 => 2
   | .promiseOrJsonU128 => 2
   | .jsonStorageBalanceOption => 5
@@ -424,6 +426,7 @@ def OutputPlan.sourceValueCount : OutputPlan → Nat
 
 def OutputPlan.canonical : OutputPlan → String
   | .borsh plan => plan.canonical
+  | .borshRecord fields => s!"near-borsh-record-u64-v1(fields={fields})"
   | .jsonU128 => "near-json-u128-string-v1"
   | .promiseOrJsonU128 => "near-promise-or-json-u128-v1"
   | .jsonStorageBalanceOption => "near-json-storage-balance-option-v1"
@@ -435,14 +438,40 @@ def OutputPlan.canonical : OutputPlan → String
   | .jsonNullUnit => "near-json-null-unit-v1"
   | .voidEmpty => "near-void-empty-v1"
 
-/-- Select only target-owned outputs already represented by exact fixed extractor frames. -/
+/-- A Borsh-serialized record output: declaration-order UInt64 fields, raw little-endian
+concatenation with no tag (the `result_serializer` wire shape for u64-field structs). Accepts
+records of 1..8 UInt64 fields; other field types reject. -/
+def borshRecordOutputPlan (schema : Core.Codec.Schema) : Except String OutputPlan :=
+  match schema with
+  | .record _ fields =>
+      if fields.isEmpty then
+        throw "near/codec: borsh record output requires at least one field"
+      else if fields.size > 8 then
+        throw "near/codec: borsh record output supports at most 8 fields"
+      else if !(fields.all (fun field => field.2 == .scalar .uint64)) then
+        throw "near/codec: borsh record output fields must all be UInt64"
+      else pure (.borshRecord fields.size)
+  | _ => throw "near/codec: borsh record output requires a record schema"
+
 def targetOutputPlan : Core.Codec.Schema → Except String OutputPlan
   | .boundedArray capacity element => .borsh <$> outputPlan (.boundedArray capacity element)
   | .boundedBytes capacity => .borsh <$> outputPlan (.boundedBytes capacity)
   | .boundedString capacity => .borsh <$> outputPlan (.boundedString capacity)
   | .scalar .uint128 => pure .jsonU128
   | schema =>
-      if schema == storageBalanceResultSchema then pure .jsonStorageBalanceOption
+      if match schema with | .record .. => true | _ => false then
+        let recordAttempt := borshRecordOutputPlan schema
+        match recordAttempt with
+        | .ok plan => pure plan
+        | .error _ =>
+            if schema == storageBalanceResultSchema then pure .jsonStorageBalanceOption
+            else if schema == storageBalanceBoundsResultSchema then pure .jsonStorageBalanceBounds
+            else if schema == base64Hash32ResultSchema then pure .jsonBase64Hash32
+            else if schema == fungibleTokenMetadataResultSchema then pure .jsonFungibleTokenMetadata
+            else if schema == jsonBooleanResultSchema then pure .jsonBoolean
+            else if schema == .unit then pure .jsonNullUnit
+            else recordAttempt
+      else if schema == storageBalanceResultSchema then pure .jsonStorageBalanceOption
       else if schema == storageBalanceBoundsResultSchema then pure .jsonStorageBalanceBounds
       else if schema == base64Hash32ResultSchema then pure .jsonBase64Hash32
       else if schema == fungibleTokenMetadataResultSchema then pure .jsonFungibleTokenMetadata

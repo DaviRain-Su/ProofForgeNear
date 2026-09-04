@@ -16,6 +16,7 @@ import Tests.NearSignerSpec
 import Tests.NearLazySpec
 import Tests.NearJsonI64InputSpec
 import Tests.NearYieldSpec
+import Tests.NearBorshRecordSpec
 import Tests.NearCryptoSpec
 import Tests.NearFtReceiverDualSpec
 import Tests.NearFtReceiverValueSpec

@@ -1113,8 +1113,25 @@ private def storeOutputElement (width offset : Nat) (value : String) : String :=
   "(" ++ op ++ " (i32.add (local.get $pf_output_ptr) (i32.const " ++
     toString offset ++ ")) " ++ value ++ ")"
 
-/-- Serialize the fixed extractor frame into one canonical active Borsh prefix. Narrow scalar
-lanes are checked before stores so target lowering never silently truncates a malformed frame. -/
+/-- Emit the Borsh-record terminal: declaration-order UInt64 fields, each stored as raw
+little-endian at consecutive 8-byte offsets in one exact arena frame (the `result_serializer`
+wire shape for u64-field structs). No length prefix, no tag. -/
+private def returnBorshRecordInstr (st : EState) (fields : Nat)
+    (values : Array (Val ValKind)) (level : Nat) : Except String (Array String) := do
+  unless values.size == fields do
+    throw "near/codec: borsh record output plan does not match result leaves"
+  let mut lines : Array String := #[
+    indent level ("(local.set $pf_output_ptr (call $pf_arena_alloc (i64.const " ++
+      toString (fields * 8) ++ ") (i64.const 8)))")
+  ]
+  for i in [0:fields] do
+    let value ← renderVal st values[i]!
+    lines := lines ++ #[indent level ("(i64.store (i32.add (i32.wrap_i64 (local.get " ++
+      "$pf_output_ptr)) (i32.const " ++ toString (i * 8) ++ ")) " ++ value ++ ")")]
+  lines := lines ++ #[indent level ("(call $pf_value_return (i64.const " ++
+    toString (fields * 8) ++ ") (i64.extend_i32_u (local.get $pf_output_ptr)))")]
+  return lines
+
 private def returnBorshInstr (st : EState) (plan : Codec.BorshOutputPlan)
     (values : Array (Val ValKind)) (level : Nat) : Except String (Array String) := do
   unless values.size == plan.sourceValueCount do
@@ -3211,8 +3228,12 @@ private partial def emitRegion (p : Program ValKind OpExt)
         let region ← emitRegion p outputPlan view echo level defaultSlot tail stagedPk.st
         return { lines := lines ++ region.lines, st := region.st, terminal := region.terminal }
     | .returnU64 value =>
+        let recordOutput := match outputPlan with
+          | some (.borshRecord _) => true
+          | _ => false
         unless view || outputPlan == some .jsonU128 || outputPlan == some .promiseOrJsonU128 ||
-            outputPlan == some .jsonStorageBalanceOption || outputPlan == some .jsonBoolean do
+            outputPlan == some .jsonStorageBalanceOption || outputPlan == some .jsonBoolean ||
+            recordOutput do
           throw "extract/unsupported: near v0 mutating region cannot return a value"
         let (values, skipped) := collectReturnU64s value tail
         unless skipped.all isExitOp do
@@ -3220,6 +3241,11 @@ private partial def emitRegion (p : Program ValKind OpExt)
         match outputPlan with
         | some (.borsh plan) =>
             return { lines := ← returnBorshInstr st plan values level, st, terminal := true }
+        | some (.borshRecord fields) =>
+            if st.pendingPromiseReturn.isSome then
+              throw "extract/unsupported: Borsh record output cannot also return a promise"
+            let recordLines ← returnBorshRecordInstr st fields values level
+            return { lines := recordLines, st, terminal := true }
         | some .jsonU128 =>
             if st.pendingPromiseReturn.isSome then
               throw "extract/unsupported: JSON u128 output cannot also return a promise"

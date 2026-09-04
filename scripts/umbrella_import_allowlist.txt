@@ -48,3 +48,11 @@ Examples/Near/NearVector.lean
 Examples/Pair.lean
 Examples/Phase.lean
 Examples/Window.lean
+Examples/Near/NearBorshRecord.lean
+Examples/Near/NearChain.lean
+Examples/Near/NearCrypto.lean
+Examples/Near/NearJsonI64Input.lean
+Examples/Near/NearLazy.lean
+Examples/Near/NearSigner.lean
+Examples/Near/NearTreeMap.lean
+Examples/Near/NearYield.lean

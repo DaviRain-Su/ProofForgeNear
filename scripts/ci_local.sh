@@ -138,7 +138,7 @@ run_near() {
   python3 scripts/check_artifact_manifest.py --target near --out build/near
   local s
   for s in \
-    check counter context chain signer crypto lazy bytes json_i64_input ft_event token_arithmetic token_storage memory output yield \
+    check counter context chain signer crypto lazy bytes json_i64_input ft_event token_arithmetic token_storage memory output yield treemap \
     storage_balance_output storage_balance_bounds_output \
     json_account_input json_amount_input json_memo_input json_message_input \
     json_ft_transfer_input json_ft_transfer_call_input json_ft_on_transfer_input \

@@ -32,6 +32,7 @@ import ProofForge.Wasm.Near.Sdk.Store.Codec
 import ProofForge.Wasm.Near.Sdk.Store.Iterable
 import ProofForge.Wasm.Near.Sdk.Store.Lookup
 import ProofForge.Wasm.Near.Sdk.Store.Queue
+import ProofForge.Wasm.Near.Sdk.Store.TreeMap
 import ProofForge.Wasm.Near.Sdk.Store.Lazy
 import ProofForge.Wasm.Near.Sdk.Store.Vector
 import ProofForge.Wasm.Near.Sdk.Store.AccountTokenLookup

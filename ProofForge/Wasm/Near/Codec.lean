@@ -459,24 +459,14 @@ def targetOutputPlan : Core.Codec.Schema → Except String OutputPlan
   | .boundedString capacity => .borsh <$> outputPlan (.boundedString capacity)
   | .scalar .uint128 => pure .jsonU128
   | schema =>
-      if match schema with | .record .. => true | _ => false then
-        let recordAttempt := borshRecordOutputPlan schema
-        match recordAttempt with
-        | .ok plan => pure plan
-        | .error _ =>
-            if schema == storageBalanceResultSchema then pure .jsonStorageBalanceOption
-            else if schema == storageBalanceBoundsResultSchema then pure .jsonStorageBalanceBounds
-            else if schema == base64Hash32ResultSchema then pure .jsonBase64Hash32
-            else if schema == fungibleTokenMetadataResultSchema then pure .jsonFungibleTokenMetadata
-            else if schema == jsonBooleanResultSchema then pure .jsonBoolean
-            else if schema == .unit then pure .jsonNullUnit
-            else recordAttempt
-      else if schema == storageBalanceResultSchema then pure .jsonStorageBalanceOption
+      if schema == storageBalanceResultSchema then pure .jsonStorageBalanceOption
       else if schema == storageBalanceBoundsResultSchema then pure .jsonStorageBalanceBounds
       else if schema == base64Hash32ResultSchema then pure .jsonBase64Hash32
       else if schema == fungibleTokenMetadataResultSchema then pure .jsonFungibleTokenMetadata
       else if schema == jsonBooleanResultSchema then pure .jsonBoolean
       else if schema == .unit then pure .jsonNullUnit
+      else if match schema with | .record .. => true | _ => false then
+        borshRecordOutputPlan schema
       else throw "near/codec: unsupported specialized output schema"
 
 end ProofForge.Wasm.Near.Codec

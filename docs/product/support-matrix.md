@@ -41,6 +41,9 @@ ProofForge NEAR is a **checkout-first Lean 4 → WAT → wat2wasm** compiler for
 | `Near.Sdk.Hash` | View-safe `sha256` / `keccak256` / `keccak512` / `ripemd160` / `ecrecover` / `ed25519_verify` with known-vector sandbox gates | Ethereum-style 27/28 `v`, keccak = SHA3, variable-length signatures |
 | `Near.Sdk.Store.Lazy` / `LazyOption` | Bare-prefix single-value `UInt64` cells with immediate writes | Rust cache/`Drop` flush timing, generic value types |
 | `Near.Sdk.Context` (signer/gas/chain) | `signer_account_id`/`pk`, `epoch_height`, `prepaid_gas`/`used_gas`, `account_locked_balance`, `random_seed`, `state_exists` | Full near-sdk `env` surface |
+| `Near.Sdk.Promises` (batch actions) | `create_account` / `deploy_contract` / `stake` / `add_key` / `delete_key` / `delete_account` (refund-to static beneficiary), yield create/resume with fail-closed malformed-token rejection | Multi-action single batch handles, runtime-computed refund targets |
+| `Near.Sdk.Store.TreeMap` | Capacity-bounded sorted ascending `UInt64` keys, in-order append, tail removal, ordered `keyAt` reads | Mid-vector insertion/removal, generic K/V, iterators, RB-tree rebalancing |
+| `Near.Codec` (Borsh record output) | `near-borsh-record-u64-v1` declaration-order UInt64 field serialization (1..8 fields) | Mixed-type records, >8 fields, generic Borsh codecs |
 
 ## Proof boundary
 

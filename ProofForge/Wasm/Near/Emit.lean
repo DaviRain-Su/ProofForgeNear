@@ -273,6 +273,7 @@ private partial def promiseLiteralsOfOps
     literals ++ match op with
       | .ext (.promiseFunctionCallDetached receiver method _ _ _ _ _) => #[receiver, method]
       | .ext (.promiseFunctionCallReturned receiver method _ _ _ _ _) => #[receiver, method]
+      | .ext (.promiseYieldCreate _ methodName _ _ _ _) => #[methodName]
       | .ext (.promiseTransferDetached receiver _ _)
       | .ext (.promiseTransferReturned receiver _ _) => #[receiver]
       | .ext (.promiseFtOnTransferReturned _ _ _ _ _) => #["ft_on_transfer"]
@@ -2102,6 +2103,55 @@ private def stagePromiseDeleteAccount (p : Program ValKind OpExt) (st : EState)
   ]
   return { lines, promiseLocal, st := st' }
 
+/-- Stage one yield promise create: call `promise_yield_create` with the method literal and the
+exact bounded argument bytes. The returned promise index drives the ordinary then/return
+machinery; the host derives the resumable data id internally. -/
+private def stagePromiseYieldCreate (p : Program ValKind OpExt) (st : EState)
+    (argsCapacity : Nat) (methodName : String) (arguments dataId : Array (Val ValKind))
+    (gas weight : Val ValKind) (level : Nat) : Except String StagedPromiseCall := do
+  let (methodOff, methodLen) ← promiseLiteralOf p methodName
+  let staged ← stageStorageFrame st argsCapacity arguments level
+  let gas' ← renderVal staged.st gas
+  let weight' ← renderVal staged.st weight
+  let dataIdPtrLocal := localOfTemp staged.st.fresh
+  let promiseLocal := localOfTemp (staged.st.fresh + 1)
+  let st' := { staged.st with fresh := staged.st.fresh + 2 }
+  let mut lines := staged.lines ++ #[
+    indent level ("(local.set " ++ dataIdPtrLocal ++
+      " (i64.extend_i32_u (call $pf_arena_alloc (i64.const 32) (i64.const 8))))")
+  ]
+  for index in [0:32] do
+    let word ← renderVal staged.st dataId[index / 8]!
+    let byte := "(i64.and (i64.shr_u " ++ word ++ " (i64.const " ++
+      toString ((index % 8) * 8) ++ ")) (i64.const 255))"
+    lines := lines ++ #[indent level ("(i64.store8 (i32.add (i32.wrap_i64 (local.get " ++
+      dataIdPtrLocal ++ ")) (i32.const " ++ toString index ++ ")) " ++ byte ++ ")")]
+  lines := lines ++ #[
+    indent level ("(local.set " ++ promiseLocal ++
+      " (call $pf_promise_yield_create (i64.const " ++ toString methodLen ++
+      ") (i64.const " ++ toString methodOff ++ ") " ++ staged.length ++ " " ++
+      staged.pointer ++ " " ++ gas' ++ " " ++ weight' ++ " (local.get " ++
+      dataIdPtrLocal ++ ")))")
+  ]
+  return { lines, promiseLocal, st := st' }
+
+/-- Stage one yield resume: `promise_yield_resume` with the exact 32-byte id frame and payload
+bytes. The host result (0/1) is stored into a fresh result frame for the caller to read via
+the ordinary result readers. -/
+private def stagePromiseYieldResume (p : Program ValKind OpExt) (st : EState)
+    (idCapacity payloadCapacity : Nat) (dataId payload : Array (Val ValKind))
+    (level : Nat) : Except String StagedPromiseCall := do
+  let stagedId ← stageStorageFrame st idCapacity dataId level
+  let stagedPayload ← stageStorageFrame stagedId.st payloadCapacity payload level
+  let promiseLocal := localOfTemp stagedPayload.st.fresh
+  let st' := { stagedPayload.st with fresh := stagedPayload.st.fresh + 1 }
+  let lines := stagedId.lines ++ stagedPayload.lines ++ #[
+    indent level ("(local.set " ++ promiseLocal ++
+      " (i64.extend_i32_u (call $pf_promise_yield_resume " ++ stagedId.pointer ++ " " ++
+      stagedId.length ++ " " ++ stagedPayload.length ++ " " ++ stagedPayload.pointer ++ ")))")
+  ]
+  return { lines, promiseLocal, st := st' }
+
 /-- Compose the exact near-contract-standards receiver payload and schedule one weighted dynamic
 `ft_on_transfer` call. The 844-byte payload allocation is the exact target worst case for two
 64-byte escaped frames, 39 decimal digits, and 37 structural bytes. -/
@@ -2737,6 +2787,24 @@ private partial def emitRegion (p : Program ValKind OpExt)
           lines := staged.lines ++ region.lines
           st := region.st
           terminal := region.terminal }
+    | .ext (.promiseYieldCreate argsCapacity methodName arguments dataId gas weight) =>
+        if view then throw "extract/unsupported: near view cannot create a yield promise"
+        let staged ← stagePromiseYieldCreate p st argsCapacity methodName arguments dataId
+          gas weight level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail staged.st
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
+    | .ext (.promiseYieldResume idCapacity payloadCapacity dataId payload) =>
+        if view then throw "extract/unsupported: near view cannot resume a yield promise"
+        let staged ← stagePromiseYieldResume p st idCapacity payloadCapacity dataId payload
+          level
+        let region ← emitRegion p outputPlan view echo level defaultSlot tail staged.st
+        return {
+          lines := staged.lines ++ region.lines
+          st := region.st
+          terminal := region.terminal }
     | .ext (.promiseFtOnTransferReturned receiver sender amountLo amountHi message) =>
         if view then throw "extract/unsupported: near view cannot create a promise"
         if st.pendingPromiseReturn.isSome then
@@ -3259,6 +3327,10 @@ private partial def usesKind (kind : ValKind) : Op ValKind OpExt → Bool
       | .promiseDeleteKeyDetached _ publicKey
       | .promiseDeleteKeyReturned _ publicKey => publicKey.any valHas
       | .promiseDeleteAccountDetached _ _ | .promiseDeleteAccountReturned _ _ => false
+      | .promiseYieldCreate _ _ arguments dataId gas weight =>
+          arguments.any valHas || dataId.any valHas || valHas gas || valHas weight
+      | .promiseYieldResume _ _ dataId payload =>
+          dataId.any valHas || payload.any valHas
       | .promiseFtOnTransferReturned receiver sender amountLo amountHi message =>
           receiver.any valHas || sender.any valHas || valHas amountLo || valHas amountHi ||
             message.any valHas
@@ -3661,6 +3733,8 @@ private partial def opUsesArena : Op ValKind OpExt → Bool
   | .ext (.promiseDeleteKeyReturned _ _)
   | .ext (.promiseDeleteAccountDetached _ _)
   | .ext (.promiseDeleteAccountReturned _ _) => true
+  | .ext (.promiseYieldCreate _ _ _ _ _ _)
+  | .ext (.promiseYieldResume _ _ _ _) => true
   | .letLocal _ value | .setLocal _ value | .forAccum _ value _
   | .storeField _ value | .okState value | .returnU64 value | .returnState value =>
       valUsesArena value
@@ -6383,6 +6457,12 @@ def emit (p : IR.Program) : Except String String := do
       programHasOpExt (fun | .promiseDeleteAccountReturned _ _ => true | _ => false) p then
     lines := lines.push
       "  (import \"env\" \"promise_batch_action_delete_account\" (func $pf_promise_batch_action_delete_account (param i64 i64 i64)))"
+  if programHasOpExt (fun | .promiseYieldCreate _ _ _ _ _ _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"promise_yield_create\" (func $pf_promise_yield_create (param i64 i64 i64 i64 i64 i64 i64) (result i64)))"
+  if programHasOpExt (fun | .promiseYieldResume _ _ _ _ => true | _ => false) p then
+    lines := lines.push
+      "  (import \"env\" \"promise_yield_resume\" (func $pf_promise_yield_resume (param i64 i64 i64 i64) (result i32)))"
   if programChainsPromise p then
     lines := lines.push
       "  (import \"env\" \"promise_batch_then\" (func $pf_promise_batch_then (param i64 i64 i64) (result i64)))"

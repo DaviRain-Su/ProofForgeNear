@@ -36,7 +36,7 @@ class TargetSpec:
 NEAR = TargetSpec(
     key="near",
     registry_rel=Path("ProofForge/Wasm/Near/Registry.lean"),
-    expected_count=46,
+    expected_count=47,
     suffixes=(".wasm", ".wat"),
     digest_suffix=".wat",
 )

@@ -282,6 +282,12 @@ def OpExt.mapValues (mapValue : Val → Val) : OpExt Val → OpExt Val
           .near (.promiseDeleteAccountDetached receiver beneficiary)
       | .promiseDeleteAccountReturned receiver beneficiary =>
           .near (.promiseDeleteAccountReturned receiver beneficiary)
+      | .promiseYieldCreate argsCapacity methodName arguments dataId gas weight =>
+          .near (.promiseYieldCreate argsCapacity methodName (arguments.map mapValue)
+            (dataId.map mapValue) (mapValue gas) (mapValue weight))
+      | .promiseYieldResume idCapacity payloadCapacity dataId payload =>
+          .near (.promiseYieldResume idCapacity payloadCapacity (dataId.map mapValue)
+            (payload.map mapValue))
       | .reserved => .near .reserved
 
 def OpExt.values : OpExt Val → Array Val
@@ -415,6 +421,8 @@ def OpExt.values : OpExt Val → Array Val
       | .promiseAddKeyReturned _ publicKey nonce => publicKey ++ #[nonce]
       | .promiseDeleteKeyDetached _ publicKey | .promiseDeleteKeyReturned _ publicKey => publicKey
       | .promiseDeleteAccountDetached _ _ | .promiseDeleteAccountReturned _ _ => #[]
+      | .promiseYieldCreate _ _ arguments dataId gas weight => arguments ++ dataId ++ #[gas, weight]
+      | .promiseYieldResume _ _ dataId payload => dataId ++ payload
       | .reserved => #[]
 
 def cfgDialect : Core.CFG.Dialect ValKind OpExt where
@@ -842,6 +850,19 @@ def OpExt.wellFormed : OpExt Val → Bool
       | .promiseDeleteAccountReturned receiver beneficiary =>
           Wasm.Near.Codec.accountIdLiteralValid receiver &&
             Wasm.Near.Codec.accountIdLiteralValid beneficiary
+      | .promiseYieldCreate argsCapacity methodName arguments dataId gas weight =>
+          Wasm.Near.Codec.promiseMethodLiteralValid methodName &&
+            Wasm.Near.Codec.storageCapacityValid argsCapacity &&
+            arguments.size == argsCapacity + 1 &&
+            arguments.all (·.wellFormed ValKind.arity) &&
+            dataId.size == 4 && dataId.all (·.wellFormed ValKind.arity) &&
+            gas.wellFormed ValKind.arity && weight.wellFormed ValKind.arity
+      | .promiseYieldResume idCapacity payloadCapacity dataId payload =>
+          Wasm.Near.Codec.storageCapacityValid idCapacity &&
+            dataId.size == idCapacity + 1 && dataId.all (·.wellFormed ValKind.arity) &&
+            Wasm.Near.Codec.storageCapacityValid payloadCapacity &&
+            payload.size == payloadCapacity + 1 &&
+            payload.all (·.wellFormed ValKind.arity)
       | .reserved => false
 
 def Op.wellFormed (op : Op) : Bool :=

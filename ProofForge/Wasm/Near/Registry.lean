@@ -52,7 +52,8 @@ def entries : Array Entry := #[
   { name := "NearSigner", digest := "1cc6cde0752468cb" },
   { name := "NearCrypto", digest := "b39bfa1dd5706ab6" },
   { name := "NearLazy", digest := "a3e935b5c94838f8" },
-  { name := "NearJsonI64Input", digest := "bb148450caac4382" }
+  { name := "NearJsonI64Input", digest := "bb148450caac4382" },
+  { name := "NearYield", digest := "fa10ea15d91f8450" }
 ]
 
 def names : Array String := entries.map (·.name)

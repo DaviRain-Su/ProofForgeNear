@@ -230,6 +230,13 @@ private def projectOpExt
           return .promiseDeleteAccountDetached receiver beneficiary
       | .promiseDeleteAccountReturned receiver beneficiary =>
           return .promiseDeleteAccountReturned receiver beneficiary
+      | .promiseYieldCreate argsCapacity methodName arguments dataId gas weight =>
+          return .promiseYieldCreate argsCapacity methodName
+            (← arguments.mapM _projectVal) (← dataId.mapM _projectVal)
+            (← _projectVal gas) (← _projectVal weight)
+      | .promiseYieldResume idCapacity payloadCapacity dataId payload =>
+          return .promiseYieldResume idCapacity payloadCapacity
+            (← dataId.mapM _projectVal) (← payload.mapM _projectVal)
       | .promiseFtOnTransferReturned receiver sender amountLo amountHi message =>
           return .promiseFtOnTransferReturned (← receiver.mapM _projectVal)
             (← sender.mapM _projectVal) (← _projectVal amountLo) (← _projectVal amountHi)
@@ -621,6 +628,14 @@ def extOpCanon : Ops.OpExt (Wasm.IR.Val Ops.ValKind) → String
   | .promiseDeleteAccountReturned receiver beneficiary =>
       s!"npromise.delete.account.returned({receiver.toUTF8.size}:{receiver};" ++
         s!"{beneficiary.toUTF8.size}:{beneficiary})"
+  | .promiseYieldCreate argsCapacity methodName arguments dataId gas weight =>
+      s!"npromise.yield.create.{argsCapacity}({methodName.toUTF8.size}:{methodName};" ++
+        s!"{canonValues arguments};{canonValues dataId};" ++
+        s!"{Wasm.IR.valCanon extValCanon gas}," ++
+        s!"{Wasm.IR.valCanon extValCanon weight})"
+  | .promiseYieldResume idCapacity payloadCapacity dataId payload =>
+      s!"npromise.yield.resume.{idCapacity}.{payloadCapacity}({canonValues dataId};" ++
+        s!"{canonValues payload})"
   | .promiseFtOnTransferReturned receiver sender amountLo amountHi message =>
       s!"npromise.ft_on_transfer.returned({canonValues receiver};{canonValues sender};" ++
         s!"{Wasm.IR.valCanon extValCanon amountLo},{Wasm.IR.valCanon extValCanon amountHi};" ++
@@ -1017,6 +1032,13 @@ private def rewritePayload
       return .promiseDeleteAccountDetached receiver beneficiary
   | .promiseDeleteAccountReturned receiver beneficiary =>
       return .promiseDeleteAccountReturned receiver beneficiary
+  | .promiseYieldCreate argsCapacity methodName arguments dataId gas weight =>
+      return .promiseYieldCreate argsCapacity methodName
+        (← arguments.mapM rewriteValue) (← dataId.mapM rewriteValue)
+        (← rewriteValue gas) (← rewriteValue weight)
+  | .promiseYieldResume idCapacity payloadCapacity dataId payload =>
+      return .promiseYieldResume idCapacity payloadCapacity
+        (← dataId.mapM rewriteValue) (← payload.mapM rewriteValue)
   | .promiseFtOnTransferReturned receiver sender amountLo amountHi message =>
       return .promiseFtOnTransferReturned (← receiver.mapM rewriteValue)
         (← sender.mapM rewriteValue) (← rewriteValue amountLo) (← rewriteValue amountHi)

@@ -296,6 +296,15 @@ private def nearLeaf (kind : ProofForge.Wasm.Near.Ops.ValKind) : Val :=
     (receiver beneficiary : String) : Op :=
   .ext (.near (.promiseDeleteAccountReturned receiver beneficiary))
 
+@[match_pattern] def Op.nearPromiseYieldCreate
+    (argsCapacity : Nat) (methodName : String) (arguments dataId : Array Val)
+    (gas weight : Val) : Op :=
+  .ext (.near (.promiseYieldCreate argsCapacity methodName arguments dataId gas weight))
+
+@[match_pattern] def Op.nearPromiseYieldResume
+    (idCapacity payloadCapacity : Nat) (dataId payload : Array Val) : Op :=
+  .ext (.near (.promiseYieldResume idCapacity payloadCapacity dataId payload))
+
 @[match_pattern] def Op.nearPromiseFunctionCallThenReturned
     (receiver childMethod callbackMethod : String)
     (childArgsCapacity callbackArgsCapacity : Nat)

@@ -971,6 +971,13 @@ def extractMethod (env : Environment) (kind : Core.IR.MethodKind) (n : Name) :
                 .promiseDeleteAccountDetached receiver beneficiary
             | .promiseDeleteAccountReturned receiver beneficiary =>
                 .promiseDeleteAccountReturned receiver beneficiary
+            | .promiseYieldCreate argsCapacity methodName arguments dataId gas weight =>
+                .promiseYieldCreate argsCapacity methodName
+                  (arguments.map (flipVal fuel')) (dataId.map (flipVal fuel'))
+                  (flipVal fuel' gas) (flipVal fuel' weight)
+            | .promiseYieldResume idCapacity payloadCapacity dataId payload =>
+                .promiseYieldResume idCapacity payloadCapacity
+                  (dataId.map (flipVal fuel')) (payload.map (flipVal fuel'))
             | .reserved => .reserved))
       | .forAccum n v resultLocal => .forAccum n (flipVal fuel' v) resultLocal
       | .forBody n body => .forBody n (body.map (flipOp fuel'))

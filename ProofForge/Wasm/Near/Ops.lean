@@ -148,6 +148,10 @@ inductive OpExt (V : Type) where
   | promiseDeleteKeyReturned (receiver : String) (publicKey : Array V)
   | promiseDeleteAccountDetached (receiver beneficiary : String)
   | promiseDeleteAccountReturned (receiver beneficiary : String)
+  | promiseYieldCreate (argsCapacity : Nat) (methodName : String)
+      (arguments dataId : Array V) (gas weight : V)
+  | promiseYieldResume (idCapacity payloadCapacity : Nat)
+      (dataId payload : Array V)
   | promiseFtOnTransferReturned (receiver sender : Array V) (amountLo amountHi : V)
       (message : Array V)
   | promiseFtOnTransferThenResolveReturned (receiver sender : Array V) (amountLo amountHi : V)
@@ -357,6 +361,15 @@ def OpExt.wellFormed : OpExt Val → Bool
       accountIdFrameWellFormed receiver && accountIdFrameWellFormed sender &&
         packedBytes64FrameWellFormed message && amountLo.wellFormed ValKind.arity &&
         amountHi.wellFormed ValKind.arity
+  | .promiseYieldCreate argsCapacity methodName arguments dataId _ _ =>
+      Codec.promiseMethodLiteralValid methodName &&
+        Codec.storageCapacityValid argsCapacity &&
+        storageFrameWellFormed argsCapacity arguments &&
+        packedWords32WellFormed dataId
+  | .promiseYieldResume idCapacity payloadCapacity dataId payload =>
+      Codec.storageCapacityValid idCapacity && storageFrameWellFormed idCapacity dataId &&
+        Codec.storageCapacityValid payloadCapacity &&
+          storageFrameWellFormed payloadCapacity payload
   | .promiseFtOnTransferThenResolveReturned receiver sender amountLo amountHi message =>
       accountIdFrameWellFormed receiver && accountIdFrameWellFormed sender &&
         packedBytes64FrameWellFormed message && amountLo.wellFormed ValKind.arity &&
@@ -636,6 +649,12 @@ private def mapCfgPayload (mapValue : Val → Val) : OpExt Val → OpExt Val
       .promiseDeleteAccountDetached receiver beneficiary
   | .promiseDeleteAccountReturned receiver beneficiary =>
       .promiseDeleteAccountReturned receiver beneficiary
+  | .promiseYieldCreate argsCapacity methodName arguments dataId gas weight =>
+      .promiseYieldCreate argsCapacity methodName (arguments.map mapValue)
+        (dataId.map mapValue) (mapValue gas) (mapValue weight)
+  | .promiseYieldResume idCapacity payloadCapacity dataId payload =>
+      .promiseYieldResume idCapacity payloadCapacity (dataId.map mapValue)
+        (payload.map mapValue)
   | .promiseFtOnTransferReturned receiver sender amountLo amountHi message =>
       .promiseFtOnTransferReturned (receiver.map mapValue) (sender.map mapValue)
         (mapValue amountLo) (mapValue amountHi) (message.map mapValue)
@@ -854,6 +873,9 @@ private def cfgPayloadValues : OpExt Val → Array Val
   | .promiseDeleteKeyDetached _ publicKey
   | .promiseDeleteKeyReturned _ publicKey => publicKey
   | .promiseDeleteAccountDetached _ _ | .promiseDeleteAccountReturned _ _ => #[]
+  | .promiseYieldCreate _ _ arguments dataId gas weight =>
+      arguments ++ dataId ++ #[gas, weight]
+  | .promiseYieldResume _ _ dataId payload => dataId ++ payload
   | .promiseFtOnTransferReturned receiver sender amountLo amountHi message =>
       receiver ++ sender ++ #[amountLo, amountHi] ++ message
   | .promiseFtOnTransferThenResolveReturned receiver sender amountLo amountHi message =>

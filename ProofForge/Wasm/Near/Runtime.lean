@@ -671,6 +671,33 @@ receipt result. -/
   let _ := beneficiary
   0
 
+
+/-- Schedule one resumable yield promise calling `methodName` on the current contract with the
+exact bounded arguments, the given gas, and a callback weight. The host derives the 32-byte
+data id internally; the source never sees it. The returned promise index participates in the
+ordinary then/return lowering. View-forbidden. -/
+@[irreducible] def promiseYieldCreate (argsCapacity : Nat) (methodName : String)
+    (arguments : ProofForge.Core.Value.BoundedBytes argsCapacity)
+    (dataId : CryptoBytes32) (gas weight : UInt64) : UInt64 :=
+  let _ := argsCapacity
+  let _ := methodName
+  let _ := arguments
+  let _ := dataId
+  let _ := gas
+  let _ := weight
+  0
+
+/-- Attempt to resume one yielded promise with the exact data id and payload bytes. Host `1`
+means the yield was resumed; `0` means no matching pending yield. The id is a source-supplied
+value: the caller owns learning it out-of-band (logs, callbacks, storage). -/
+@[irreducible] def promiseYieldResume (idCapacity payloadCapacity : Nat)
+    (dataId : ProofForge.Core.Value.BoundedBytes idCapacity)
+    (payload : ProofForge.Core.Value.BoundedBytes payloadCapacity) : UInt64 :=
+  let _ := idCapacity
+  let _ := dataId
+  let _ := payloadCapacity
+  let _ := payload
+  0
 /-- Schedule the specialized weighted `ft_on_transfer` child call used by the future
 `ft_transfer_call` path. The receiver and sender are complete dynamic AccountIds; the target owns
 the exact JSON payload, fixed zero deposit, method name, and weighted host action. -/

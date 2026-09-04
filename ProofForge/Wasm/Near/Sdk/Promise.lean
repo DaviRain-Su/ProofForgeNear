@@ -718,4 +718,21 @@ before this call. Failed, oversized, and malformed results preserve their status
     w0 := Runtime.promiseResultQuotedU128W0 buffer
     w1 := Runtime.promiseResultQuotedU128W1 buffer }
 
+/-! Resumable yield promises. `yieldCreate` schedules a self-call whose execution can be
+resumed later through `promise_yield_resume` with the exact data id; the host-derived id
+is opaque to source code (learn it via logs, callbacks, or storage). -/
+
+/-- Schedule one resumable self-call with the exact bounded arguments. Returns the host
+promise index, which participates in ordinary then/return lowering. -/
+@[pf_inline] def yieldCreate {argsCapacity : Nat}
+    (methodName : String) (arguments : BoundedBytes argsCapacity)
+    (dataId : Runtime.CryptoBytes32) (gas weight : UInt64) : UInt64 :=
+  Runtime.promiseYieldCreate argsCapacity methodName arguments dataId gas weight
+
+/-- Attempt to resume one yielded promise with the exact data id and payload. Returns the
+raw host 0/1 status. -/
+@[pf_inline] def yieldResume {idCapacity payloadCapacity : Nat}
+    (dataId : BoundedBytes idCapacity) (payload : BoundedBytes payloadCapacity) : UInt64 :=
+  Runtime.promiseYieldResume idCapacity payloadCapacity dataId payload
+
 end ProofForge.Wasm.Near.Sdk.Promises

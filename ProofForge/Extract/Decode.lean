@@ -2755,6 +2755,8 @@ partial def mentionsNearEffect (env : Environment) : Nat → Expr → Bool
         name == ``ProofForge.Wasm.Near.Runtime.promiseDeleteKeyReturned ||
         name == ``ProofForge.Wasm.Near.Runtime.promiseDeleteAccountDetached ||
         name == ``ProofForge.Wasm.Near.Runtime.promiseDeleteAccountReturned ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseYieldCreate ||
+        name == ``ProofForge.Wasm.Near.Runtime.promiseYieldResume ||
         name == ``ProofForge.Wasm.Near.Runtime.promiseResultRead ||
         name == ``ProofForge.Wasm.Near.Runtime.transientBuffer64Begin ||
         name == ``ProofForge.Wasm.Near.Runtime.transientBuffer64Set ||
@@ -5145,6 +5147,35 @@ private def decodeNearEffect (env : Environment) (e : Expr) : Option (Array Ops.
                 .nearPromiseDeleteAccountReturned receiver beneficiary
               else
                 .nearPromiseDeleteAccountDetached receiver beneficiary)
+            else none
+        | _, _ => none
+      else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseYieldCreate &&
+          e.getAppArgs.size ≥ 6 then
+        let args := e.getAppArgs
+        match staticNatVal? env args[args.size - 6]!,
+            staticString? env 64 args[args.size - 5]!,
+            nearCryptoBytes32Frame? env args[args.size - 3]!,
+            val env args[args.size - 2]!, val env args[args.size - 1]! with
+        | some argsCapacity, some methodName, some dataId, some gas, some weight =>
+            if ProofForge.Wasm.Near.Codec.promiseMethodLiteralValid methodName &&
+                ProofForge.Wasm.Near.Codec.storageCapacityValid argsCapacity then
+              (boundedStorageFrame? env argsCapacity args[args.size - 4]!).map fun arguments =>
+                .nearPromiseYieldCreate argsCapacity methodName arguments dataId gas weight
+            else none
+        | _, _, _, _, _ => none
+      else if isConstNamed e ``ProofForge.Wasm.Near.Runtime.promiseYieldResume &&
+          e.getAppArgs.size ≥ 4 then
+        let args := e.getAppArgs
+        match staticNatVal? env args[args.size - 4]!,
+            staticNatVal? env args[args.size - 3]! with
+        | some idCapacity, some payloadCapacity =>
+            if ProofForge.Wasm.Near.Codec.storageCapacityValid idCapacity &&
+                ProofForge.Wasm.Near.Codec.storageCapacityValid payloadCapacity then
+              match boundedStorageFrame? env idCapacity args[args.size - 2]!,
+                  boundedStorageFrame? env payloadCapacity args[args.size - 1]! with
+              | some dataId, some payload =>
+                  some (.nearPromiseYieldResume idCapacity payloadCapacity dataId payload)
+              | _, _ => none
             else none
         | _, _ => none
       else if let some fields := userCtorFields env e then
